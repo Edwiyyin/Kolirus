@@ -1,0 +1,27 @@
+# Flutter/Dart
+.dart_tool/
+packages
+pubspec.lock
+
+# Build outputs
+build/
+android/build/
+
+# Native hooks / build artifacts
+native_hooks/
+
+# Cache files
+*.dill
+*.json
+*.cache
+
+# IDE
+.idea/
+*.iml
+
+# Local config (VERY IMPORTANT)
+local.properties
+
+# Keystore (VERY IMPORTANT)
+*.jks
+*.keystore
