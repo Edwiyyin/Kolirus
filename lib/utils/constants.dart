@@ -1,33 +1,27 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary    = Color(0xFF5C4A32);
-  static const Color secondary  = Color(0xFFA0785A);
-  static const Color accent     = Color(0xFFC8BA96);
-  static const Color card       = Color(0xFFD4C4A0);
-  static const Color background = Color(0xFFE8DCC8);
-  static const Color text       = Color(0xFF3A2810);
-  static const Color textLight  = Color(0xFF7A6040);
-  static const Color success    = Color(0xFF6B8C5A);
-  static const Color warning    = Color(0xFFC87840);
-  static const Color danger     = Color(0xFFA04030);
+  static const Color dark       = Color(0xFF121212); // Deep Dark
+  static const Color primary    = Color(0xFF1E1E1E); // Surface Dark
+  static const Color beige      = Color(0xFFF5F5DC); // Text/Highlights
+  static const Color olive      = Color(0xFF808000); // Green Olive
+  static const Color violet     = Color(0xFF8A2BE2); // Violet Accent
+  
+  static const Color background = dark;
+  static const Color card       = primary;
+  static const Color text       = beige;
+  static const Color accent     = violet;
+  static const Color success    = olive;
 }
 
 class AppTextStyles {
   static const TextStyle heading1 = TextStyle(
-    fontSize: 24, fontWeight: FontWeight.w700,
-    color: AppColors.text, letterSpacing: -0.5,
+    fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.beige,
   );
   static const TextStyle heading2 = TextStyle(
-    fontSize: 18, fontWeight: FontWeight.w600,
-    color: AppColors.text,
+    fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.beige,
   );
   static const TextStyle body = TextStyle(
-    fontSize: 14, fontWeight: FontWeight.w400,
-    color: AppColors.text,
-  );
-  static const TextStyle caption = TextStyle(
-    fontSize: 12, fontWeight: FontWeight.w400,
-    color: AppColors.textLight,
+    fontSize: 14, color: AppColors.beige,
   );
 }

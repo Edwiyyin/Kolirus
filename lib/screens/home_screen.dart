@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/constants.dart';
+import '../providers/food_log_provider.dart';
+import '../providers/pantry_provider.dart';
+import '../providers/health_provider.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final Map<String, bool> _mealsDone = {
     'Breakfast': false,
     'Lunch': false,
@@ -38,19 +42,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final totals = ref.watch(foodLogProvider.notifier).getDailyTotals();
+    final pantryCount = ref.watch(pantryProvider).length;
+    final health = ref.watch(healthProvider);
+
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/logo.png',
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.restaurant_menu),
+          ),
+        ),
         title: const Text('Kolirus'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            color: AppColors.card,
-            onPressed: () => _showComingSoon(context, 'Notifications'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded),
-            color: AppColors.card,
-            onPressed: () => _showComingSoon(context, 'Profile'),
+            icon: const Icon(Icons.sync),
+            onPressed: () => ref.read(healthProvider.notifier).syncWithGoogleFit(),
           ),
         ],
       ),
@@ -63,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
               greeting: _getGreeting(),
               mealsCompleted: _mealsCompleted,
               totalMeals: _mealsDone.length,
+              calories: totals['calories'] ?? 0,
             ),
             const SizedBox(height: 16),
             Text('Today at a glance', style: AppTextStyles.heading2),
@@ -70,40 +80,40 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(children: [
               Expanded(child: _SummaryCard(
                 title: 'Calories',
-                value: '1,840',
-                sub: '360 remaining',
+                value: '${totals['calories']?.toStringAsFixed(0)}',
+                sub: 'kcal consumed',
                 icon: Icons.local_fire_department_rounded,
                 iconColor: AppColors.warning,
-                onTap: () => _showComingSoon(context, 'Calorie details'),
+                onTap: () {},
               )),
               const SizedBox(width: 12),
               Expanded(child: _SummaryCard(
                 title: 'Pantry',
-                value: '12 items',
-                sub: '3 expiring soon',
+                value: '$pantryCount items',
+                sub: 'In stock',
                 icon: Icons.kitchen_rounded,
                 iconColor: AppColors.secondary,
-                onTap: () => _showComingSoon(context, 'Pantry'),
+                onTap: () {},
               )),
             ]),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: _SummaryCard(
-                title: 'Water',
-                value: '1.4 L',
-                sub: '0.6 L to go',
-                icon: Icons.water_drop_rounded,
-                iconColor: AppColors.primary,
-                onTap: () => _showWaterDialog(context),
+                title: 'Steps',
+                value: '${health?.steps ?? 0}',
+                sub: 'steps today',
+                icon: Icons.directions_walk_rounded,
+                iconColor: AppColors.success,
+                onTap: () {},
               )),
               const SizedBox(width: 12),
               Expanded(child: _SummaryCard(
-                title: 'Steps',
-                value: '6,240',
-                sub: '3,760 to goal',
-                icon: Icons.directions_walk_rounded,
-                iconColor: AppColors.success,
-                onTap: () => _showComingSoon(context, 'Steps & Google Fit'),
+                title: 'Weight',
+                value: '${health?.weight ?? 0} kg',
+                sub: 'Current BMI: ${health?.bodyMass.toStringAsFixed(1)}',
+                icon: Icons.monitor_weight_rounded,
+                iconColor: AppColors.primary,
+                onTap: () => _showHealthUpdateDialog(context),
               )),
             ]),
             const SizedBox(height: 20),
@@ -124,64 +134,36 @@ class _HomeScreenState extends State<HomeScreen> {
               done: _mealsDone[meal]!,
               onTap: () => _toggleMeal(meal),
             )),
-            const SizedBox(height: 20),
-            _QuickActionsRow(context: context),
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature — coming soon!'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  void _showWaterDialog(BuildContext context) {
-    double _water = 1.4;
+  void _showHealthUpdateDialog(BuildContext context) {
+    final weightController = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => AlertDialog(
-          backgroundColor: AppColors.background,
-          title: Text('Water intake', style: AppTextStyles.heading2),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${_water.toStringAsFixed(1)} L',
-                  style: AppTextStyles.heading1),
-              const SizedBox(height: 16),
-              Slider(
-                value: _water,
-                min: 0,
-                max: 4,
-                divisions: 16,
-                activeColor: AppColors.primary,
-                inactiveColor: AppColors.accent,
-                onChanged: (v) => setInner(() => _water = v),
-              ),
-              Text('Goal: 2.0 L', style: AppTextStyles.caption),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: TextStyle(color: AppColors.textLight)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Save'),
-            ),
-          ],
+      builder: (context) => AlertDialog(
+        title: const Text('Update Health Data'),
+        content: TextField(
+          controller: weightController,
+          decoration: const InputDecoration(labelText: 'Weight (kg)'),
+          keyboardType: TextInputType.number,
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final w = double.tryParse(weightController.text);
+              if (w != null) {
+                ref.read(healthProvider.notifier).updateManualEntry(weight: w);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Update'),
+          ),
+        ],
       ),
     );
   }
@@ -190,11 +172,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _GreetingCard extends StatelessWidget {
   final String greeting;
   final int mealsCompleted, totalMeals;
+  final double calories;
 
   const _GreetingCard({
     required this.greeting,
     required this.mealsCompleted,
     required this.totalMeals,
+    required this.calories,
   });
 
   @override
@@ -220,42 +204,15 @@ class _GreetingCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Calories', style: AppTextStyles.caption.copyWith(
-                color: AppColors.accent,
-              )),
-              Text('1,840 / 2,200 kcal', style: AppTextStyles.caption.copyWith(
-                color: AppColors.accent,
-              )),
+              Text('Daily Calories', style: AppTextStyles.caption.copyWith(color: AppColors.accent)),
+              Text('${calories.toStringAsFixed(0)} / 2000 kcal', style: AppTextStyles.caption.copyWith(color: AppColors.accent)),
             ],
           ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.61,
-              backgroundColor: AppColors.secondary,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.card),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Meals today', style: AppTextStyles.caption.copyWith(
-                color: AppColors.accent,
-              )),
-              Text('$mealsCompleted / $totalMeals done',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.accent,
-                  )),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: totalMeals == 0 ? 0 : mealsCompleted / totalMeals,
+              value: (calories / 2000).clamp(0.0, 1.0),
               backgroundColor: AppColors.secondary,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.card),
               minHeight: 8,
@@ -334,14 +291,10 @@ class _MealRoutineCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-                key: ValueKey(done),
-                color: done ? AppColors.success : AppColors.accent,
-                size: 20,
-              ),
+            Icon(
+              done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+              color: done ? AppColors.success : AppColors.accent,
+              size: 20,
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(meal,
@@ -351,78 +304,6 @@ class _MealRoutineCard extends StatelessWidget {
               ),
             )),
             Text(time, style: AppTextStyles.caption),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionsRow extends StatelessWidget {
-  final BuildContext context;
-  const _QuickActionsRow({required this.context});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Quick actions', style: AppTextStyles.heading2),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _ActionButton(
-              label: 'Scan food',
-              icon: Icons.qr_code_scanner,
-              onTap: () {},
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _ActionButton(
-              label: 'Add to log',
-              icon: Icons.add_circle_outline_rounded,
-              onTap: () {},
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _ActionButton(
-              label: 'Recipes',
-              icon: Icons.menu_book_rounded,
-              onTap: () {},
-            )),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.label, required this.icon, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.accent, width: 0.8),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 22),
-            const SizedBox(height: 6),
-            Text(label, style: AppTextStyles.caption.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-            )),
           ],
         ),
       ),
