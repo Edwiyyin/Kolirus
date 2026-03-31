@@ -9,29 +9,39 @@ class PantryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pantryItems = ref.watch(pantryProvider);
+    final pantry = ref.watch(pantryProvider);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('My Pantry'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.kitchen), text: 'Fridge'),
-              Tab(icon: Icon(Icons.shelves), text: 'Shelf'),
-              Tab(icon: Icon(Icons.ac_unit), text: 'Freezer'),
-            ],
-            indicatorColor: AppColors.accent,
-            labelColor: AppColors.card,
-            unselectedLabelColor: AppColors.accent,
-          ),
-        ),
-        body: TabBarView(
+    final shelfItems = pantry.where((item) => item.location == StorageLocation.shelf).toList();
+    final fridgeItems = pantry.where((item) => item.location == StorageLocation.fridge).toList();
+    final freezerItems = pantry.where((item) => item.location == StorageLocation.freezer).toList();
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('kolirus kitchen', style: TextStyle(color: AppColors.beige)),
+        backgroundColor: AppColors.primary,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
           children: [
-            _PantryList(items: pantryItems.where((i) => i.location == StorageLocation.fridge).toList()),
-            _PantryList(items: pantryItems.where((i) => i.location == StorageLocation.shelf).toList()),
-            _PantryList(items: pantryItems.where((i) => i.location == StorageLocation.freezer).toList()),
+            _StorageSection(
+              title: 'FREEZER',
+              icon: Icons.ac_unit,
+              items: freezerItems,
+              color: Colors.blueAccent,
+            ),
+            _StorageSection(
+              title: 'FRIDGE',
+              icon: Icons.kitchen,
+              items: fridgeItems,
+              color: AppColors.violet,
+            ),
+            _StorageSection(
+              title: 'SHELF',
+              icon: Icons.shelves,
+              items: shelfItems,
+              color: AppColors.olive,
+            ),
           ],
         ),
       ),
@@ -39,96 +49,122 @@ class PantryScreen extends ConsumerWidget {
   }
 }
 
-class _PantryList extends ConsumerWidget {
+class _StorageSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
   final List<FoodItem> items;
-  const _PantryList({required this.items});
+  final Color color;
+
+  const _StorageSection({
+    required this.title,
+    required this.icon,
+    required this.items,
+    required this.color,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (items.isEmpty) {
-      return const Center(child: Text('No items here', style: AppTextStyles.body));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final isExpired = item.expiryDate != null && item.expiryDate!.isBefore(DateTime.now());
-        
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: item.imageUrl != null 
-              ? Image.network(item.imageUrl!, width: 50, errorBuilder: (_, __, ___) => const Icon(Icons.fastfood))
-              : const Icon(Icons.fastfood, size: 40, color: AppColors.secondary),
-            title: Text(item.name, style: AppTextStyles.heading2),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withOpacity(0.5), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+            ),
+            child: Row(
               children: [
-                if (item.brand != null) Text(item.brand!, style: AppTextStyles.caption),
-                if (item.expiryDate != null)
-                  Text(
-                    'Expires: ${item.expiryDate!.toLocal().toString().split(' ')[0]}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isExpired ? AppColors.danger : AppColors.textLight,
-                      fontWeight: isExpired ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
+                Icon(icon, color: color, size: 24),
+                const SizedBox(width: 8),
+                Text(title, style: AppTextStyles.heading2.copyWith(color: color)),
+                const Spacer(),
+                Text('${items.length}', style: const TextStyle(color: Colors.white)),
               ],
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-              onPressed: () => ref.read(pantryProvider.notifier).removeItem(item.id!),
-            ),
-            onTap: () => _showItemDetails(context, item),
           ),
-        );
-      },
-    );
-  }
-
-  void _showItemDetails(BuildContext context, FoodItem item) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(item.name, style: AppTextStyles.heading1),
-            const SizedBox(height: 10),
-            _NutrientRow('Calories', '${item.calories.toStringAsFixed(1)} kcal'),
-            _NutrientRow('Protein', '${item.protein.toStringAsFixed(1)}g'),
-            _NutrientRow('Carbs', '${item.carbs.toStringAsFixed(1)}g'),
-            _NutrientRow('Fat', '${item.fat.toStringAsFixed(1)}g'),
-            _NutrientRow('Sugar', '${item.sugar.toStringAsFixed(1)}g'),
-            const SizedBox(height: 20),
-            if (item.nutriScore != null)
-              Row(
-                children: [
-                  const Text('Nutri-Score: ', style: AppTextStyles.heading2),
-                  Chip(label: Text(item.nutriScore!), backgroundColor: Colors.orange.shade200),
-                ],
-              ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: items.isEmpty
+                ? const Center(child: Padding(padding: EdgeInsets.all(10), child: Text('Empty')))
+                : GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) => _PantryItemTile(item: items[index], accentColor: color),
+                  ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _NutrientRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+class _PantryItemTile extends ConsumerWidget {
+  final FoodItem item;
+  final Color accentColor;
+  const _PantryItemTile({required this.item, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.dark,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accentColor.withOpacity(0.2)),
+      ),
+      child: Stack(
         children: [
-          Text(label, style: AppTextStyles.body),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(item.name, 
+                  style: const TextStyle(color: AppColors.beige, fontSize: 13, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text('${item.calories.toInt()} kcal', style: AppTextStyles.caption),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.add_circle_outline, size: 16, color: AppColors.olive),
+                  onPressed: () {
+                    // Quick add to log logic
+                  },
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
+                  onPressed: () => ref.read(pantryProvider.notifier).removeItem(item.id!),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

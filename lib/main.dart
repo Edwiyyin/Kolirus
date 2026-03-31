@@ -24,7 +24,7 @@ class KolirusApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kolirus',
+      title: 'kolirus',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.background,
@@ -39,17 +39,6 @@ class KolirusApp extends StatelessWidget {
           elevation: 0,
           centerTitle: true,
         ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: AppColors.primary,
-          selectedItemColor: AppColors.accent,
-          unselectedItemColor: AppColors.textLight,
-          type: BottomNavigationBarType.fixed,
-          showUnselectedLabels: false,
-        ),
-        cardTheme: CardThemeData(
-          color: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
         useMaterial3: true,
       ),
       home: const MainShell(),
@@ -57,33 +46,61 @@ class KolirusApp extends StatelessWidget {
   }
 }
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  bool _isOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+  }
+
+  void _toggleMenu() {
+    setState(() {
+      _isOpen = !_isOpen;
+      if (_isOpen) _controller.forward();
+      else _controller.reverse();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
 
     final List<Widget> _screens = [
       const HomeScreen(),
       const PantryScreen(),
-      Container(), // Placeholder for central FAB
+      const FoodLogScreen(),
       const RecipeScreen(),
       const StatsScreen(),
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: _screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: currentIndex,
+            children: _screens,
+          ),
+          if (_isOpen)
+            GestureDetector(
+              onTap: _toggleMenu,
+              child: Container(color: Colors.black54),
+            ),
+          _buildFabMenu(),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddMenu(context, ref),
-        backgroundColor: AppColors.accent,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.black, size: 30),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         height: 60,
@@ -91,76 +108,80 @@ class MainShell extends ConsumerWidget {
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
         child: Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            IconButton(
-              icon: Icon(Icons.home_rounded, 
-                color: currentIndex == 0 ? AppColors.accent : AppColors.textLight),
-              onPressed: () => ref.read(navigationProvider.notifier).state = 0,
-            ),
-            IconButton(
-              icon: Icon(Icons.kitchen_rounded, 
-                color: currentIndex == 1 ? AppColors.accent : AppColors.textLight),
-              onPressed: () => ref.read(navigationProvider.notifier).state = 1,
-            ),
-            const SizedBox(width: 48), // Space for FAB
-            IconButton(
-              icon: Icon(Icons.menu_book_rounded, 
-                color: currentIndex == 3 ? AppColors.accent : AppColors.textLight),
-              onPressed: () => ref.read(navigationProvider.notifier).state = 3,
-            ),
-            IconButton(
-              icon: Icon(Icons.bar_chart_rounded, 
-                color: currentIndex == 4 ? AppColors.accent : AppColors.textLight),
-              onPressed: () => ref.read(navigationProvider.notifier).state = 4,
-            ),
+            _navItem(Icons.home_rounded, 0, currentIndex),
+            _navItem(Icons.kitchen_rounded, 1, currentIndex),
+            const SizedBox(width: 48),
+            _navItem(Icons.menu_book_rounded, 3, currentIndex),
+            _navItem(Icons.bar_chart_rounded, 4, currentIndex),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _toggleMenu,
+        backgroundColor: AppColors.accent,
+        shape: const CircleBorder(),
+        child: RotationTransition(
+          turns: Tween(begin: 0.0, end: 0.125).animate(_controller),
+          child: const Icon(Icons.add, color: Colors.black, size: 30),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  Widget _navItem(IconData icon, int index, int current) {
+    return IconButton(
+      icon: Icon(icon, color: index == current ? AppColors.accent : AppColors.textLight),
+      onPressed: () => ref.read(navigationProvider.notifier).state = index,
+    );
+  }
+
+  Widget _buildFabMenu() {
+    return Positioned(
+      bottom: 100,
+      left: 0,
+      right: 0,
+      child: ScaleTransition(
+        scale: CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _circularButton(Icons.qr_code_scanner, "Scan", () {
+              _toggleMenu();
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ScannerScreen()));
+            }),
+            const SizedBox(width: 20),
+            _circularButton(Icons.add_box_outlined, "Pantry", () {
+              _toggleMenu();
+              _showManualPantryDialog(context, ref);
+            }),
+            const SizedBox(width: 20),
+            _circularButton(Icons.restaurant_menu, "Log", () {
+              _toggleMenu();
+              ref.read(navigationProvider.notifier).state = 2;
+            }),
           ],
         ),
       ),
     );
   }
 
-  void _showAddMenu(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _circularButton(IconData icon, String label, VoidCallback onTap) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FloatingActionButton(
+          heroTag: label,
+          onPressed: onTap,
+          backgroundColor: AppColors.olive,
+          mini: true,
+          child: Icon(icon, color: AppColors.beige),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner, color: AppColors.accent),
-              title: const Text('Scan Food Barcode'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ScannerScreen()));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.add_box_outlined, color: AppColors.accent),
-              title: const Text('Add Pantry Manually'),
-              onTap: () {
-                Navigator.pop(context);
-                _showManualPantryDialog(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.restaurant_menu, color: AppColors.accent),
-              title: const Text('Log a Meal'),
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(navigationProvider.notifier).state = 3; // Switch to Log (Recipes for now or add log tab)
-              },
-            ),
-          ],
-        ),
-      ),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 10)),
+      ],
     );
   }
 
@@ -185,7 +206,7 @@ class MainShell extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Manual Pantry Entry', style: AppTextStyles.heading1),
+                const Text('Add to Pantry', style: AppTextStyles.heading1),
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
@@ -197,7 +218,7 @@ class MainShell extends ConsumerWidget {
                   children: [
                     Expanded(child: TextField(
                       controller: calController,
-                      decoration: const InputDecoration(labelText: 'Calories (kcal)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(labelText: 'Calories', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
                     )),
                     const SizedBox(width: 12),
@@ -236,7 +257,7 @@ class MainShell extends ConsumerWidget {
                       Navigator.pop(context);
                     }
                   },
-                  child: const Text('Add to Pantry', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 20),
               ],

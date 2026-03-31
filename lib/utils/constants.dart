@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  // Base Colors requested
   static const Color dark       = Color(0xFF121212); // Deep Dark
   static const Color primary    = Color(0xFF1E1E1E); // Surface Dark
   static const Color beige      = Color(0xFFF5F5DC); // Text/Highlights
   static const Color olive      = Color(0xFF808000); // Green Olive
   static const Color violet     = Color(0xFF8A2BE2); // Violet Accent
   
+  // App Theme Mappings
   static const Color background = dark;
   static const Color card       = primary;
   static const Color text       = beige;
   static const Color accent     = violet;
   static const Color success    = olive;
+  
+  // Restoring missing members for compatibility
+  static const Color textLight  = Color(0xFFD2D2A0); // A darker beige for captions
+  static const Color secondary  = olive;
+  static const Color warning    = Color(0xFFE9C46A); // Warm beige/yellow
+  static const Color danger     = Color(0xFFCF6679); // Standard error red
 }
 
 class AppTextStyles {
@@ -23,5 +31,9 @@ class AppTextStyles {
   );
   static const TextStyle body = TextStyle(
     fontSize: 14, color: AppColors.beige,
+  );
+  // Restoring missing member
+  static const TextStyle caption = TextStyle(
+    fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textLight,
   );
 }
