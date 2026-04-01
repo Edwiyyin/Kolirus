@@ -23,9 +23,16 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createScanHistoryTable(db);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -102,6 +109,40 @@ class DatabaseService {
         steps $intType
       )
     ''');
+
+    await _createScanHistoryTable(db);
+  }
+
+  Future _createScanHistoryTable(Database db) async {
+    const idType = 'TEXT PRIMARY KEY';
+    const textType = 'TEXT NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+    const floatType = 'REAL NOT NULL';
+    const textTypeNullable = 'TEXT';
+
+    await db.execute('''
+      CREATE TABLE scan_history (
+        id $idType,
+        name $textType,
+        barcode $textTypeNullable,
+        brand $textTypeNullable,
+        imageUrl $textTypeNullable,
+        nutriScore $textTypeNullable,
+        allergens $textType,
+        location $intType,
+        expiryDate $textTypeNullable,
+        addedDate $textType,
+        calories $floatType,
+        protein $floatType,
+        carbs $floatType,
+        fat $floatType,
+        saturatedFat $floatType,
+        sodium $floatType,
+        cholesterol $floatType,
+        fiber $floatType,
+        sugar $floatType
+      )
+    ''');
   }
 
   // Food Items (Pantry)
@@ -119,6 +160,18 @@ class DatabaseService {
   Future<void> deleteFoodItem(String id) async {
     final db = await instance.database;
     await db.delete('food_items', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Scan History
+  Future<void> insertScanHistory(FoodItem item) async {
+    final db = await instance.database;
+    await db.insert('scan_history', item.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<FoodItem>> getScanHistory() async {
+    final db = await instance.database;
+    final result = await db.query('scan_history', orderBy: 'addedDate DESC', limit: 50);
+    return result.map((json) => FoodItem.fromMap(json)).toList();
   }
 
   // Recipes
@@ -171,5 +224,11 @@ class DatabaseService {
       return HealthEntry.fromMap(result.first);
     }
     return null;
+  }
+
+  Future<List<HealthEntry>> getAllHealthEntries() async {
+    final db = await instance.database;
+    final result = await db.query('health_entries', orderBy: 'date ASC');
+    return result.map((json) => HealthEntry.fromMap(json)).toList();
   }
 }
