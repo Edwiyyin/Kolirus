@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/constants.dart';
+import '../models/meal_routine.dart';
+import '../providers/pantry_provider.dart';
 
 class RoutineScreen extends ConsumerStatefulWidget {
   const RoutineScreen({super.key});
@@ -13,6 +15,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   final ScrollController _hourScrollController = ScrollController();
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   int _selectedDayIndex = DateTime.now().weekday - 1;
+  bool _isNextWeek = false;
 
   @override
   void initState() {
@@ -26,7 +29,31 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Day Selector (Weekly)
+        // Week Selector
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ChoiceChip(
+                label: const Text('This Week'),
+                selected: !_isNextWeek,
+                onSelected: (val) => setState(() => _isNextWeek = false),
+                selectedColor: AppColors.olive,
+                labelStyle: TextStyle(color: !_isNextWeek ? Colors.black : Colors.white),
+              ),
+              const SizedBox(width: 10),
+              ChoiceChip(
+                label: const Text('Next Week'),
+                selected: _isNextWeek,
+                onSelected: (val) => setState(() => _isNextWeek = true),
+                selectedColor: AppColors.olive,
+                labelStyle: TextStyle(color: _isNextWeek ? Colors.black : Colors.white),
+              ),
+            ],
+          ),
+        ),
+        // Day Selector
         Container(
           height: 80,
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -123,16 +150,58 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             ListTile(
               leading: const Icon(Icons.book, color: AppColors.olive),
               title: const Text('add from recipes', style: TextStyle(color: AppColors.beige)),
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+                _showRecipePicker();
+              },
             ),
             ListTile(
               leading: const Icon(Icons.edit, color: AppColors.olive),
               title: const Text('manual entry', style: TextStyle(color: AppColors.beige)),
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+                _showManualEntryDialog(hour);
+              },
             ),
             const SizedBox(height: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showRecipePicker() {
+    // Implement recipe selection
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recipe picker coming soon!')));
+  }
+
+  void _showManualEntryDialog(int hour) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('Meal at ${hour.toString().padLeft(2, '0')}:00'),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'What are you eating?',
+            labelStyle: TextStyle(color: AppColors.olive),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+            onPressed: () {
+              // Save to routine provider (need to create one or use DB)
+              Navigator.pop(context);
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.black)),
+          ),
+        ],
       ),
     );
   }

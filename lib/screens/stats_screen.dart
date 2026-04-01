@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/health_provider.dart';
+import '../models/health_entry.dart';
 import '../utils/constants.dart';
 
 class StatsScreen extends ConsumerWidget {
@@ -11,7 +13,9 @@ class StatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final totals = ref.watch(foodLogProvider.notifier).getDailyTotals();
-    final health = ref.watch(healthProvider);
+    final healthState = ref.watch(healthProvider);
+    final health = healthState.today;
+    final history = healthState.history;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -38,6 +42,22 @@ class StatsScreen extends ConsumerWidget {
               )),
             ],
           ),
+          
+          if (history.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text('weight progress', style: AppTextStyles.heading2),
+            const SizedBox(height: 16),
+            Container(
+              height: 200,
+              padding: const EdgeInsets.only(right: 20, top: 20, bottom: 10),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: _WeightChart(history: history),
+            ),
+          ],
+
           const SizedBox(height: 24),
           const Text('nutrition', style: AppTextStyles.heading2),
           const SizedBox(height: 16),
@@ -102,28 +122,101 @@ class StatsScreen extends ConsumerWidget {
 
   void _showWeightDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('update weight', style: TextStyle(color: AppColors.beige)),
-        content: TextField(
-          controller: controller,
-          style: const TextStyle(color: AppColors.beige),
-          decoration: const InputDecoration(labelText: 'kg', labelStyle: TextStyle(color: AppColors.olive)),
-          keyboardType: TextInputType.number,
-          autofocus: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          title: const Text('update weight', style: TextStyle(color: AppColors.beige)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}', style: const TextStyle(color: Colors.white)),
+                trailing: const Icon(Icons.calendar_today, color: AppColors.olive),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) setState(() => selectedDate = date);
+                },
+              ),
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: AppColors.beige),
+                decoration: const InputDecoration(labelText: 'kg', labelStyle: TextStyle(color: AppColors.olive)),
+                keyboardType: TextInputType.number,
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('cancel', style: TextStyle(color: AppColors.beige))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+              onPressed: () {
+                final w = double.tryParse(controller.text);
+                if (w != null) {
+                  ref.read(healthProvider.notifier).updateManualEntry(weight: w, date: selectedDate);
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('update', style: TextStyle(color: Colors.black)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('cancel', style: TextStyle(color: AppColors.beige))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
-            onPressed: () {
-              final w = double.tryParse(controller.text);
-              if (w != null) ref.read(healthProvider.notifier).updateManualEntry(weight: w);
-              Navigator.pop(context);
-            },
-            child: const Text('update', style: TextStyle(color: Colors.black)),
+      ),
+    );
+  }
+}
+
+class _WeightChart extends StatelessWidget {
+  final List<HealthEntry> history;
+  const _WeightChart({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    // Only use entries with weight > 0
+    final entries = history.where((e) => e.weight > 0).toList();
+    if (entries.isEmpty) return const Center(child: Text('No weight data'));
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= 0 && value.toInt() < entries.length) {
+                  if (value.toInt() % (entries.length > 5 ? (entries.length / 5).ceil() : 1) == 0) {
+                    return Text(DateFormat('MM/dd').format(entries[value.toInt()].date), 
+                        style: const TextStyle(color: Colors.white54, fontSize: 10));
+                  }
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: entries.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weight)).toList(),
+            isCurved: true,
+            color: AppColors.olive,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+            belowBarData: BarAreaData(show: true, color: AppColors.olive.withOpacity(0.1)),
           ),
         ],
       ),

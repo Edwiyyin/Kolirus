@@ -31,6 +31,11 @@ class PantryNotifier extends StateNotifier<List<FoodItem>> {
     await loadItems();
   }
 
+  Future<void> updateItem(FoodItem item) async {
+    await _db.insertFoodItem(item); // insert uses ConflictAlgorithm.replace
+    await loadItems();
+  }
+
   Future<void> removeItem(String id) async {
     await _db.deleteFoodItem(id);
     await loadItems();

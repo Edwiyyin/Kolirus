@@ -4,10 +4,10 @@ import 'utils/constants.dart';
 import 'screens/home_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/pantry_screen.dart';
-import 'screens/food_log_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/recipe_screen.dart';
 import 'screens/routine_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/navigation_provider.dart';
 import 'models/food_item.dart';
@@ -90,7 +90,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
       const RoutineScreen(),
       const RecipeScreen(),
       const StatsScreen(),
-      const PantryScreen(), // Hidden from direct tab access but available in stack
+      const PantryScreen(), 
     ];
 
     return Scaffold(
@@ -110,7 +110,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.beige),
             onPressed: () {
-              // Settings logic here
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
             },
           ),
         ],
@@ -220,6 +220,9 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
     final nameController = TextEditingController();
     final calController = TextEditingController();
     final proteinController = TextEditingController();
+    final carbsController = TextEditingController();
+    final fatController = TextEditingController();
+    final sugarController = TextEditingController();
     StorageLocation selectedLocation = StorageLocation.shelf;
 
     showModalBottomSheet(
@@ -267,6 +270,27 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
                   )),
                 ],
               ),
+              Row(
+                children: [
+                  Expanded(child: TextField(
+                    controller: carbsController,
+                    decoration: const InputDecoration(labelText: 'carbs', labelStyle: TextStyle(color: AppColors.olive)),
+                    keyboardType: TextInputType.number,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(
+                    controller: fatController,
+                    decoration: const InputDecoration(labelText: 'fat', labelStyle: TextStyle(color: AppColors.olive)),
+                    keyboardType: TextInputType.number,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(
+                    controller: sugarController,
+                    decoration: const InputDecoration(labelText: 'sugar', labelStyle: TextStyle(color: AppColors.olive)),
+                    keyboardType: TextInputType.number,
+                  )),
+                ],
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<StorageLocation>(
                 value: selectedLocation,
@@ -286,6 +310,9 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
                       name: nameController.text,
                       calories: double.tryParse(calController.text) ?? 0,
                       protein: double.tryParse(proteinController.text) ?? 0,
+                      carbs: double.tryParse(carbsController.text) ?? 0,
+                      fat: double.tryParse(fatController.text) ?? 0,
+                      sugar: double.tryParse(sugarController.text) ?? 0,
                       location: selectedLocation,
                     );
                     ref.read(pantryProvider.notifier).addItem(item);
