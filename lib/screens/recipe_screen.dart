@@ -24,6 +24,11 @@ class RecipeNotifier extends StateNotifier<List<Recipe>> {
     await _db.insertRecipe(recipe);
     await loadRecipes();
   }
+
+  Future<void> updateRecipe(Recipe recipe) async {
+    await _db.insertRecipe(recipe); 
+    await loadRecipes();
+  }
 }
 
 class RecipeScreen extends ConsumerWidget {
@@ -33,75 +38,54 @@ class RecipeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recipes = ref.watch(recipeProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Recipes', style: TextStyle(color: AppColors.beige)),
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: AppColors.beige),
-      ),
-      body: recipes.isEmpty
-          ? const Center(child: Text('No recipes yet. Tap + to add one!', style: AppTextStyles.body))
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: recipes.length,
-              itemBuilder: (context, index) {
-                final recipe = recipes[index];
-                return Card(
-                  color: AppColors.card,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    title: Text(recipe.name, style: AppTextStyles.heading2),
-                    subtitle: Text('${recipe.ingredients.length} Ingredients', style: const TextStyle(color: AppColors.beige)),
-                    trailing: const Icon(Icons.chevron_right, color: AppColors.violet),
-                    onTap: () => _showRecipeDetails(context, recipe),
-                  ),
-                );
-              },
+    return Column(
+      children: [
+        Expanded(
+          child: recipes.isEmpty
+              ? const Center(child: Text('no recipes yet. tap + to add one!', style: AppTextStyles.body))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: recipes.length,
+                  itemBuilder: (context, index) {
+                    final recipe = recipes[index];
+                    return Card(
+                      color: AppColors.card,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        title: Text(recipe.name.toLowerCase(), style: AppTextStyles.heading2),
+                        subtitle: Text('${recipe.ingredients.length} ingredients', style: const TextStyle(color: AppColors.beige)),
+                        trailing: const Icon(Icons.edit, color: AppColors.olive),
+                        onTap: () => _showRecipeEditor(context, ref, recipe: recipe),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 80, right: 16),
+          child: Align(
+            alignment: Alignment.bottomRight,
+            child: FloatingActionButton(
+              heroTag: 'add_recipe_fab',
+              onPressed: () => _showRecipeEditor(context, ref),
+              backgroundColor: AppColors.olive,
+              child: const Icon(Icons.add, color: Colors.black),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddRecipeDialog(context, ref),
-        backgroundColor: AppColors.violet,
-        child: const Icon(Icons.add, color: AppColors.beige),
-      ),
-    );
-  }
-
-  void _showRecipeDetails(BuildContext context, Recipe recipe) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(recipe.name, style: AppTextStyles.heading1),
-              const Divider(color: AppColors.violet),
-              const Text('Ingredients:', style: AppTextStyles.heading2),
-              ...recipe.ingredients.map((i) => Text('• ${i.amount} ${i.unit} ${i.name}', style: AppTextStyles.body)),
-              const SizedBox(height: 16),
-              const Text('Instructions:', style: AppTextStyles.heading2),
-              ...recipe.instructions.asMap().entries.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text('${e.key + 1}. ${e.value}', style: AppTextStyles.body),
-              )),
-              const SizedBox(height: 30),
-            ],
           ),
         ),
-      ),
+      ],
     );
   }
 
-  void _showAddRecipeDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final ingredientsController = TextEditingController();
-    final instructionsController = TextEditingController();
+  void _showRecipeEditor(BuildContext context, WidgetRef ref, {Recipe? recipe}) {
+    final isEditing = recipe != null;
+    final nameController = TextEditingController(text: recipe?.name ?? '');
+    final ingredientsController = TextEditingController(
+      text: recipe?.ingredients.map((i) => i.name).join('\n') ?? ''
+    );
+    final instructionsController = TextEditingController(
+      text: recipe?.instructions.join('\n') ?? ''
+    );
 
     showModalBottomSheet(
       context: context,
@@ -117,43 +101,46 @@ class RecipeScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Create New Recipe', style: AppTextStyles.heading1),
+              Text(isEditing ? 'edit recipe' : 'create new recipe', style: AppTextStyles.heading1),
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
                 style: const TextStyle(color: AppColors.beige),
                 decoration: const InputDecoration(
-                  labelText: 'Recipe Name',
-                  labelStyle: TextStyle(color: AppColors.beige),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.violet)),
+                  labelText: 'recipe name',
+                  labelStyle: TextStyle(color: AppColors.olive),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.beige)),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: ingredientsController,
-                maxLines: 3,
+                maxLines: 4,
                 style: const TextStyle(color: AppColors.beige),
                 decoration: const InputDecoration(
-                  labelText: 'Ingredients (one per line)',
-                  labelStyle: TextStyle(color: AppColors.beige),
+                  labelText: 'ingredients (one per line)',
+                  labelStyle: TextStyle(color: AppColors.olive),
                   enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.beige)),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: instructionsController,
-                maxLines: 5,
+                maxLines: 6,
                 style: const TextStyle(color: AppColors.beige),
                 decoration: const InputDecoration(
-                  labelText: 'Instructions (one step per line)',
-                  labelStyle: TextStyle(color: AppColors.beige),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.violet)),
+                  labelText: 'description',
+                  labelStyle: TextStyle(color: AppColors.olive),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.beige)),
                 ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.violet,
+                  backgroundColor: AppColors.olive,
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 onPressed: () {
@@ -168,16 +155,22 @@ class RecipeScreen extends ConsumerWidget {
                         .where((s) => s.trim().isNotEmpty)
                         .toList();
 
-                    ref.read(recipeProvider.notifier).addRecipe(Recipe(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: nameController.text,
+                    final newRecipe = Recipe(
+                      id: isEditing ? recipe.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                      name: nameController.text.toLowerCase(),
                       ingredients: ingredients,
                       instructions: instructions,
-                    ));
+                    );
+
+                    if (isEditing) {
+                      ref.read(recipeProvider.notifier).updateRecipe(newRecipe);
+                    } else {
+                      ref.read(recipeProvider.notifier).addRecipe(newRecipe);
+                    }
                     Navigator.pop(context);
                   }
                 },
-                child: const Text('Save Recipe', style: TextStyle(color: AppColors.beige, fontWeight: FontWeight.bold)),
+                child: Text(isEditing ? 'update' : 'save', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 20),
             ],
