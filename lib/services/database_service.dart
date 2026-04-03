@@ -4,6 +4,7 @@ import '../models/food_item.dart';
 import '../models/recipe.dart';
 import '../models/meal_log.dart';
 import '../models/health_entry.dart';
+import '../models/meal_routine.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -23,7 +24,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 6, // Incremented for recipe columns
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -32,6 +33,46 @@ class DatabaseService {
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createScanHistoryTable(db);
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE shopping_list (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          isCompleted INTEGER NOT NULL,
+          category TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE user_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE meal_routine (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          mealType INTEGER NOT NULL,
+          recipeId TEXT,
+          manualEntry TEXT,
+          time TEXT,
+          isEaten INTEGER NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE food_items ADD COLUMN ingredientsText TEXT');
+      await db.execute('ALTER TABLE scan_history ADD COLUMN ingredientsText TEXT');
+    }
+    if (oldVersion < 6) {
+      // Add missing columns to recipes table
+      await db.execute('ALTER TABLE recipes ADD COLUMN prepTime INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE recipes ADD COLUMN cookTime INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE recipes ADD COLUMN servings INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE recipes ADD COLUMN category TEXT DEFAULT "Lunch"');
     }
   }
 
@@ -52,6 +93,7 @@ class DatabaseService {
         imageUrl $textTypeNullable,
         nutriScore $textTypeNullable,
         allergens $textType,
+        ingredientsText $textTypeNullable,
         location $intType,
         expiryDate $textTypeNullable,
         addedDate $textType,
@@ -75,7 +117,11 @@ class DatabaseService {
         ingredients $textType,
         instructions $textType,
         imageUrl $textTypeNullable,
-        isCommunityShared $boolType
+        isCommunityShared $boolType,
+        prepTime INTEGER NOT NULL DEFAULT 0,
+        cookTime INTEGER NOT NULL DEFAULT 0,
+        servings INTEGER NOT NULL DEFAULT 1,
+        category TEXT NOT NULL DEFAULT 'Lunch'
       )
     ''');
 
@@ -111,6 +157,32 @@ class DatabaseService {
     ''');
 
     await _createScanHistoryTable(db);
+    
+    await db.execute('''
+      CREATE TABLE shopping_list (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        isCompleted INTEGER NOT NULL,
+        category TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE user_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE meal_routine (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        mealType INTEGER NOT NULL,
+        recipeId TEXT,
+        manualEntry TEXT,
+        time TEXT,
+        isEaten INTEGER NOT NULL
+      )
+    ''');
   }
 
   Future _createScanHistoryTable(Database db) async {
@@ -129,6 +201,7 @@ class DatabaseService {
         imageUrl $textTypeNullable,
         nutriScore $textTypeNullable,
         allergens $textType,
+        ingredientsText $textTypeNullable,
         location $intType,
         expiryDate $textTypeNullable,
         addedDate $textType,
@@ -159,7 +232,7 @@ class DatabaseService {
 
   Future<void> deleteFoodItem(String id) async {
     final db = await instance.database;
-    await db.delete('food_items', where: 'id = ?', whereArgs: [id]);
+    await db.delete('food_items', where: 'id \u003d ?', whereArgs: [id]);
   }
 
   // Scan History
@@ -205,6 +278,11 @@ class DatabaseService {
     return result.map((json) => MealLog.fromMap(json)).toList();
   }
 
+  Future<void> deleteMealLog(String id) async {
+    final db = await instance.database;
+    await db.delete('meal_logs', where: 'id \u003d ?', whereArgs: [id]);
+  }
+
   // Health Entries
   Future<void> insertHealthEntry(HealthEntry entry) async {
     final db = await instance.database;
@@ -230,5 +308,54 @@ class DatabaseService {
     final db = await instance.database;
     final result = await db.query('health_entries', orderBy: 'date ASC');
     return result.map((json) => HealthEntry.fromMap(json)).toList();
+  }
+
+  // Shopping List
+  Future<void> insertShoppingItem(Map<String, dynamic> item) async {
+    final db = await instance.database;
+    await db.insert('shopping_list', item, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, dynamic>>> getShoppingList() async {
+    final db = await instance.database;
+    return await db.query('shopping_list');
+  }
+
+  Future<void> deleteShoppingItem(String id) async {
+    final db = await instance.database;
+    await db.delete('shopping_list', where: 'id \u003d ?', whereArgs: [id]);
+  }
+
+  // User Settings
+  Future<void> saveSetting(String key, String value) async {
+    final db = await instance.database;
+    await db.insert('user_settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<String?> getSetting(String key) async {
+    final db = await instance.database;
+    final result = await db.query('user_settings', where: 'key \u003d ?', whereArgs: [key]);
+    if (result.isNotEmpty) {
+      return result.first['value'] as String;
+    }
+    return null;
+  }
+
+  // Meal Routine
+  Future<void> insertMealRoutine(MealRoutine routine) async {
+    final db = await instance.database;
+    await db.insert('meal_routine', routine.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<MealRoutine>> getMealRoutine(DateTime date) async {
+    final db = await instance.database;
+    final dateStr = DateTime(date.year, date.month, date.day).toIso8601String().split('T')[0];
+    final result = await db.query('meal_routine', where: 'date LIKE ?', whereArgs: ['$dateStr%']);
+    return result.map((json) => MealRoutine.fromMap(json)).toList();
+  }
+
+  Future<void> deleteMealRoutine(String id) async {
+    final db = await instance.database;
+    await db.delete('meal_routine', where: 'id \u003d ?', whereArgs: [id]);
   }
 }

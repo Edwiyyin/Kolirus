@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../models/meal_routine.dart';
+import '../providers/routine_provider.dart';
 import '../providers/pantry_provider.dart';
+import '../models/recipe.dart';
+import '../screens/recipe_screen.dart';
+import '../models/meal_type.dart'; // Unified MealType import
 
 class RoutineScreen extends ConsumerStatefulWidget {
   const RoutineScreen({super.key});
@@ -13,9 +18,8 @@ class RoutineScreen extends ConsumerStatefulWidget {
 
 class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   final ScrollController _hourScrollController = ScrollController();
-  final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  int _selectedDayIndex = DateTime.now().weekday - 1;
-  bool _isNextWeek = false;
+  final ScrollController _dayScrollController = ScrollController();
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -27,59 +31,52 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final routineEntries = ref.watch(routineProvider);
+
     return Column(
       children: [
-        // Week Selector
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ChoiceChip(
-                label: const Text('This Week'),
-                selected: !_isNextWeek,
-                onSelected: (val) => setState(() => _isNextWeek = false),
-                selectedColor: AppColors.olive,
-                labelStyle: TextStyle(color: !_isNextWeek ? Colors.black : Colors.white),
-              ),
-              const SizedBox(width: 10),
-              ChoiceChip(
-                label: const Text('Next Week'),
-                selected: _isNextWeek,
-                onSelected: (val) => setState(() => _isNextWeek = true),
-                selectedColor: AppColors.olive,
-                labelStyle: TextStyle(color: _isNextWeek ? Colors.black : Colors.white),
-              ),
-            ],
-          ),
-        ),
-        // Day Selector
+        // Horizontal Date Selector
         Container(
-          height: 80,
+          height: 90,
           padding: const EdgeInsets.symmetric(vertical: 10),
           color: AppColors.primary,
           child: ListView.builder(
+            controller: _dayScrollController,
             scrollDirection: Axis.horizontal,
-            itemCount: 7,
+            itemCount: 60, 
             itemBuilder: (context, index) {
-              bool isSelected = _selectedDayIndex == index;
+              final date = DateTime.now().subtract(const Duration(days: 30)).add(Duration(days: index));
+              final isSelected = DateUtils.isSameDay(date, _selectedDate);
+              final isToday = DateUtils.isSameDay(date, DateTime.now());
+
               return GestureDetector(
-                onTap: () => setState(() => _selectedDayIndex = index),
+                onTap: () {
+                  setState(() => _selectedDate = date);
+                  ref.read(routineProvider.notifier).loadRoutine(date);
+                },
                 child: Container(
-                  width: 60,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: 65,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.olive : Colors.transparent,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: AppColors.olive),
+                    border: Border.all(color: isToday ? AppColors.olive : Colors.white10),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_days[index], 
+                      Text(DateFormat('E').format(date), 
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : Colors.white38,
+                          fontSize: 12
+                        )
+                      ),
+                      const SizedBox(height: 4),
+                      Text(DateFormat('d').format(date), 
                         style: TextStyle(
                           color: isSelected ? Colors.black : AppColors.beige,
-                          fontWeight: FontWeight.bold
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18
                         )
                       ),
                     ],
@@ -89,36 +86,42 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             },
           ),
         ),
+        
         // Hourly Calendar
         Expanded(
           child: ListView.builder(
             controller: _hourScrollController,
             itemCount: 24,
             itemBuilder: (context, hour) {
+              final timeStr = '${hour.toString().padLeft(2, '0')}:00';
+              final entriesAtHour = routineEntries.where((e) => e.time == timeStr).toList();
+
               return Container(
-                height: 60,
+                constraints: const BoxConstraints(minHeight: 80),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppColors.beige.withOpacity(0.1))),
+                  border: Border(bottom: BorderSide(color: AppColors.beige.withOpacity(0.05))),
                 ),
                 child: Row(
                   children: [
                     Container(
                       width: 60,
                       alignment: Alignment.center,
-                      child: Text(
-                        '${hour.toString().padLeft(2, '0')}:00',
-                        style: AppTextStyles.caption,
-                      ),
+                      child: Text(timeStr, style: AppTextStyles.caption),
                     ),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => _addMealToTime(hour),
-                        child: Container(
-                          color: Colors.transparent,
-                          child: const Center(
-                            child: Icon(Icons.add, color: Colors.white10, size: 16),
+                      child: Column(
+                        children: [
+                          ...entriesAtHour.map((entry) => _RoutineItemTile(entry: entry)),
+                          GestureDetector(
+                            onTap: () => _addMealToTime(hour),
+                            child: Container(
+                              height: 40,
+                              width: double.infinity,
+                              color: Colors.transparent,
+                              child: const Icon(Icons.add, color: Colors.white10, size: 20),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -132,6 +135,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   }
 
   void _addMealToTime(int hour) {
+    final timeStr = '${hour.toString().padLeft(2, '0')}:00';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -145,22 +149,22 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('add meal at ${hour.toString().padLeft(2, '0')}:00', style: AppTextStyles.heading2),
+            Text('Plan meal at $timeStr', style: AppTextStyles.heading2),
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.book, color: AppColors.olive),
-              title: const Text('add from recipes', style: TextStyle(color: AppColors.beige)),
+              title: const Text('Add from recipes', style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
-                _showRecipePicker();
+                _showRecipePicker(timeStr);
               },
             ),
             ListTile(
               leading: const Icon(Icons.edit, color: AppColors.olive),
-              title: const Text('manual entry', style: TextStyle(color: AppColors.beige)),
+              title: const Text('Manual entry', style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
-                _showManualEntryDialog(hour);
+                _showManualEntryDialog(timeStr);
               },
             ),
             const SizedBox(height: 20),
@@ -170,23 +174,57 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     );
   }
 
-  void _showRecipePicker() {
-    // Implement recipe selection
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recipe picker coming soon!')));
+  void _showRecipePicker(String time) {
+    final recipes = ref.read(recipeProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Column(
+        children: [
+          const Padding(padding: EdgeInsets.all(16), child: Text('Select Recipe', style: AppTextStyles.heading2)),
+          Expanded(
+            child: recipes.isEmpty 
+              ? const Center(child: Text('No recipes found'))
+              : ListView.builder(
+                  itemCount: recipes.length,
+                  itemBuilder: (context, index) {
+                    final r = recipes[index];
+                    return ListTile(
+                      title: Text(r.name, style: const TextStyle(color: Colors.white)),
+                      onTap: () {
+                        final entry = MealRoutine(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          date: _selectedDate,
+                          mealType: MealType.Lunch,
+                          recipeId: r.id,
+                          manualEntry: r.name,
+                          time: time,
+                        );
+                        ref.read(routineProvider.notifier).addEntry(entry);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _showManualEntryDialog(int hour) {
+  void _showManualEntryDialog(String time) {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text('Meal at ${hour.toString().padLeft(2, '0')}:00'),
+        title: Text('Meal at $time'),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
-            labelText: 'What are you eating?',
+            labelText: 'Meal name',
             labelStyle: TextStyle(color: AppColors.olive),
           ),
           autofocus: true,
@@ -196,10 +234,60 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
             onPressed: () {
-              // Save to routine provider (need to create one or use DB)
+              if (controller.text.isNotEmpty) {
+                final entry = MealRoutine(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  date: _selectedDate,
+                  mealType: MealType.Lunch,
+                  manualEntry: controller.text,
+                  time: time,
+                );
+                ref.read(routineProvider.notifier).addEntry(entry);
+              }
               Navigator.pop(context);
             },
             child: const Text('Save', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutineItemTile extends ConsumerWidget {
+  final MealRoutine entry;
+  const _RoutineItemTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: entry.isEaten ? AppColors.olive.withOpacity(0.1) : AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: entry.isEaten ? AppColors.olive : Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: entry.isEaten,
+            activeColor: AppColors.olive,
+            onChanged: (_) => ref.read(routineProvider.notifier).toggleEaten(entry),
+          ),
+          Expanded(
+            child: Text(
+              entry.manualEntry ?? 'Meal',
+              style: TextStyle(
+                color: entry.isEaten ? AppColors.olive : Colors.white,
+                fontWeight: FontWeight.bold,
+                decoration: entry.isEaten ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white24),
+            onPressed: () => ref.read(routineProvider.notifier).removeEntry(entry),
           ),
         ],
       ),

@@ -1,16 +1,13 @@
-import 'food_item.dart';
-
-enum MealType { breakfast, lunch, dinner, snack }
+import 'meal_type.dart';
 
 class MealLog {
   final String? id;
   final String foodItemId;
   final String foodName;
-  final double quantity; // in grams or units
+  final double quantity;
   final DateTime consumedAt;
   final MealType type;
-  
-  // Macros at time of consumption (calculated based on quantity)
+
   final double calories;
   final double protein;
   final double carbs;

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/meal_log.dart';
 import '../models/food_item.dart';
+import '../models/meal_type.dart';
 import '../services/database_service.dart';
 
 final foodLogProvider = StateNotifierProvider<FoodLogNotifier, List<MealLog>>((ref) {
@@ -18,8 +19,18 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
     state = await _db.getMealLogs(date);
   }
 
+  Future<void> addLog(MealLog log) async {
+    await _db.insertMealLog(log);
+    await loadLogs(DateTime.now());
+  }
+
+  Future<void> removeLog(String logId) async {
+    await _db.deleteMealLog(logId);
+    await loadLogs(DateTime.now());
+  }
+
   Future<void> addMeal(FoodItem item, double quantity, MealType type) async {
-    final ratio = quantity / 100.0; // Assuming nutritional info is per 100g
+    final ratio = quantity / 100.0;
     final log = MealLog(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       foodItemId: item.id ?? item.barcode ?? 'unknown',
@@ -38,8 +49,7 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       sugar: item.sugar * ratio,
     );
 
-    await _db.insertMealLog(log);
-    await loadLogs(DateTime.now());
+    await addLog(log);
   }
 
   Map<String, double> getDailyTotals() {

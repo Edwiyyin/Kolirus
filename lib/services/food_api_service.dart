@@ -22,6 +22,7 @@ class FoodApiService {
             imageUrl: product['image_url'],
             nutriScore: product['nutriscore_grade']?.toString().toUpperCase(),
             allergens: _parseAllergens(product['allergens_tags']),
+            ingredientsText: product['ingredients_text'],
             calories: _toDouble(nutriments['energy-kcal_100g']),
             protein: _toDouble(nutriments['proteins_100g']),
             carbs: _toDouble(nutriments['carbohydrates_100g']),

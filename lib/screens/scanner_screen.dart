@@ -5,6 +5,7 @@ import '../services/food_api_service.dart';
 import '../models/food_item.dart';
 import '../providers/pantry_provider.dart';
 import '../providers/scan_history_provider.dart';
+import '../providers/settings_provider.dart';
 import '../utils/constants.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
@@ -30,7 +31,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         
         if (mounted) {
           if (product != null) {
-            // Add to scan history
             ref.read(scanHistoryProvider.notifier).addToHistory(product);
             _showProductDialog(product);
           } else {
@@ -47,6 +47,20 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   void _showProductDialog(FoodItem product) {
     StorageLocation selectedLocation = StorageLocation.shelf;
     DateTime? selectedExpiry;
+    final userSettings = ref.read(settingsProvider);
+    final userAllergies = List<String>.from(userSettings['allergies'] ?? []);
+    
+    List<String> detectedAllergies = [];
+    for (var allergy in userAllergies) {
+      final allergenLower = allergy.toLowerCase();
+      bool found = product.allergens.any((a) => a.toLowerCase().contains(allergenLower)) ||
+                   product.name.toLowerCase().contains(allergenLower) ||
+                   (product.brand?.toLowerCase().contains(allergenLower) ?? false) ||
+                   (product.ingredientsText?.toLowerCase().contains(allergenLower) ?? false);
+      if (found) {
+        detectedAllergies.add(allergy);
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -57,7 +71,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => DraggableScrollableSheet(
-          initialChildSize: 0.7,
+          initialChildSize: 0.8,
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
@@ -75,9 +89,33 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   const SizedBox(height: 10),
                   Text(product.name, style: AppTextStyles.heading1, textAlign: TextAlign.center),
                   Text(product.brand ?? '', style: AppTextStyles.caption),
-                  const Divider(color: AppColors.secondary, height: 30),
                   
-                  // Nutrition Info Section
+                  if (detectedAllergies.isNotEmpty) ...[
+                    const SizedBox(height: 15),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.danger),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'ALLERGY WARNING: Contains ${detectedAllergies.join(", ")}',
+                              style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const Divider(color: Colors.white12, height: 30),
+                  
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text('Nutritional Information (per 100g)', style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
@@ -93,7 +131,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   _buildNutrientRow('Sodium', '${product.sodium} g'),
                   _buildNutrientRow('Cholesterol', '${product.cholesterol} mg'),
                   
-                  const Divider(color: AppColors.secondary, height: 30),
+                  const Divider(color: Colors.white12, height: 30),
                   
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -107,7 +145,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   const SizedBox(height: 10),
                   DropdownButtonFormField<StorageLocation>(
                     value: selectedLocation,
-                    decoration: const InputDecoration(labelText: 'Store in', labelStyle: TextStyle(color: AppColors.olive)),
+                    decoration: const InputDecoration(
+                      labelText: 'Store in', 
+                      labelStyle: TextStyle(color: AppColors.olive),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white10)),
+                    ),
                     dropdownColor: AppColors.card,
                     items: StorageLocation.values.map((loc) {
                       return DropdownMenuItem(value: loc, child: Text(loc.name.toUpperCase(), style: const TextStyle(color: Colors.white)));
@@ -121,7 +163,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       ? 'Set Expiry Date' 
                       : 'Expires: ${selectedExpiry!.toLocal().toString().split(' ')[0]}',
                       style: const TextStyle(color: Colors.white)),
-                    trailing: const Icon(Icons.calendar_today, color: AppColors.accent),
+                    trailing: const Icon(Icons.calendar_today, color: AppColors.olive),
                     onTap: () async {
                       final date = await showDatePicker(
                         context: context,
@@ -135,7 +177,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: AppColors.olive,
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
                     ),
@@ -148,6 +190,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                         imageUrl: product.imageUrl,
                         nutriScore: product.nutriScore,
                         allergens: product.allergens,
+                        ingredientsText: product.ingredientsText,
                         location: selectedLocation,
                         expiryDate: selectedExpiry,
                         calories: product.calories,
@@ -161,10 +204,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                         sugar: product.sugar,
                       );
                       ref.read(pantryProvider.notifier).addItem(finalProduct);
-                      Navigator.pop(context); // Close bottom sheet
-                      Navigator.pop(context); // Go back
+                      Navigator.pop(context); 
+                      Navigator.pop(context); 
                     },
-                    child: const Text('Add to Pantry', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    child: const Text('Add to Kitchen', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -199,29 +242,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     }
   }
 
-  void _showHistory() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => const ScanHistorySheet(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Food'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history, color: AppColors.accent),
-            onPressed: _showHistory,
-          ),
-        ],
       ),
       body: Stack(
         children: [
@@ -233,110 +258,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.accent, width: 4),
+                border: Border.all(color: AppColors.olive, width: 4),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
-          const Positioned(
-            bottom: 100,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Text(
-                'Align barcode within the square',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black45),
-              ),
-            ),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-class ScanHistorySheet extends ConsumerWidget {
-  const ScanHistorySheet({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final history = ref.watch(scanHistoryProvider);
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.8,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text('Scan History', style: AppTextStyles.heading1),
-          ),
-          Expanded(
-            child: history.isEmpty 
-              ? const Center(child: Text('No scanned items yet', style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  controller: scrollController,
-                  itemCount: history.length,
-                  itemBuilder: (context, index) {
-                    final item = history[index];
-                    return ListTile(
-                      leading: item.imageUrl != null 
-                        ? Image.network(item.imageUrl!, width: 50, height: 50, fit: BoxFit.cover)
-                        : const Icon(Icons.fastfood, color: AppColors.olive),
-                      title: Text(item.name, style: const TextStyle(color: Colors.white)),
-                      subtitle: Text(item.brand ?? '', style: AppTextStyles.caption),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add_circle_outline, color: AppColors.accent),
-                        onPressed: () => _addToPantry(context, ref, item),
-                      ),
-                    );
-                  },
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _addToPantry(BuildContext context, WidgetRef ref, FoodItem item) {
-    // Show a small dialog to pick location
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('Add to Pantry', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: StorageLocation.values.map((loc) => ListTile(
-            title: Text(loc.name.toUpperCase(), style: const TextStyle(color: Colors.white)),
-            onTap: () {
-              final newItem = FoodItem(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                name: item.name,
-                barcode: item.barcode,
-                brand: item.brand,
-                imageUrl: item.imageUrl,
-                nutriScore: item.nutriScore,
-                allergens: item.allergens,
-                location: loc,
-                calories: item.calories,
-                protein: item.protein,
-                carbs: item.carbs,
-                fat: item.fat,
-                sugar: item.sugar,
-                saturatedFat: item.saturatedFat,
-                sodium: item.sodium,
-                cholesterol: item.cholesterol,
-                fiber: item.fiber,
-              );
-              ref.read(pantryProvider.notifier).addItem(newItem);
-              Navigator.pop(context); // Close dialog
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${item.name} to ${loc.name}')));
-            },
-          )).toList(),
-        ),
       ),
     );
   }

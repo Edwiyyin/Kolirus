@@ -9,16 +9,14 @@ class FoodItem {
   final String? brand;
   final String? imageUrl;
 
-  // Nutri-Score and Allergies
   final String? nutriScore;
   final List<String> allergens;
+  final String? ingredientsText;
 
-  // Storage and Expiry
   final StorageLocation location;
   final DateTime? expiryDate;
   final DateTime addedDate;
 
-  // Nutritional Info (per 100g/unit)
   final double calories;
   final double protein;
   final double carbs;
@@ -37,6 +35,7 @@ class FoodItem {
     this.imageUrl,
     this.nutriScore,
     this.allergens = const [],
+    this.ingredientsText,
     this.location = StorageLocation.shelf,
     this.expiryDate,
     DateTime? addedDate,
@@ -51,7 +50,6 @@ class FoodItem {
     this.sugar = 0,
   }) : addedDate = addedDate ?? DateTime.now();
 
-  // For Database/API conversions
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -61,6 +59,7 @@ class FoodItem {
       'imageUrl': imageUrl,
       'nutriScore': nutriScore,
       'allergens': jsonEncode(allergens),
+      'ingredientsText': ingredientsText,
       'location': location.index,
       'expiryDate': expiryDate?.toIso8601String(),
       'addedDate': addedDate.toIso8601String(),
@@ -85,6 +84,7 @@ class FoodItem {
       imageUrl: map['imageUrl'],
       nutriScore: map['nutriScore'],
       allergens: List<String>.from(jsonDecode(map['allergens'] ?? '[]')),
+      ingredientsText: map['ingredientsText'],
       location: StorageLocation.values[map['location'] ?? 1],
       expiryDate: map['expiryDate'] != null ? DateTime.parse(map['expiryDate']) : null,
       addedDate: DateTime.parse(map['addedDate']),

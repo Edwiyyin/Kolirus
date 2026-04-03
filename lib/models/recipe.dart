@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'food_item.dart';
 
 class Recipe {
   final String? id;
@@ -9,6 +8,10 @@ class Recipe {
   final List<String> instructions;
   final String? imageUrl;
   final bool isCommunityShared;
+  final int prepTime;
+  final int cookTime;
+  final int servings;
+  final String category;
 
   Recipe({
     this.id,
@@ -18,6 +21,10 @@ class Recipe {
     required this.instructions,
     this.imageUrl,
     this.isCommunityShared = false,
+    this.prepTime = 0,
+    this.cookTime = 0,
+    this.servings = 1,
+    this.category = 'Main',
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +36,10 @@ class Recipe {
       'instructions': jsonEncode(instructions),
       'imageUrl': imageUrl,
       'isCommunityShared': isCommunityShared ? 1 : 0,
+      'prepTime': prepTime,
+      'cookTime': cookTime,
+      'servings': servings,
+      'category': category,
     };
   }
 
@@ -43,18 +54,20 @@ class Recipe {
       instructions: List<String>.from(jsonDecode(map['instructions'])),
       imageUrl: map['imageUrl'],
       isCommunityShared: map['isCommunityShared'] == 1,
+      prepTime: map['prepTime'] ?? 0,
+      cookTime: map['cookTime'] ?? 0,
+      servings: map['servings'] ?? 1,
+      category: map['category'] ?? 'Main',
     );
   }
 }
 
 class RecipeIngredient {
-  final String foodItemId;
   final String name;
-  final double amount;
+  final String amount;
   final String unit;
 
   RecipeIngredient({
-    required this.foodItemId,
     required this.name,
     required this.amount,
     required this.unit,
@@ -62,7 +75,6 @@ class RecipeIngredient {
 
   Map<String, dynamic> toMap() {
     return {
-      'foodItemId': foodItemId,
       'name': name,
       'amount': amount,
       'unit': unit,
@@ -71,9 +83,8 @@ class RecipeIngredient {
 
   factory RecipeIngredient.fromMap(Map<String, dynamic> map) {
     return RecipeIngredient(
-      foodItemId: map['foodItemId'],
       name: map['name'],
-      amount: map['amount'].toDouble(),
+      amount: map['amount'].toString(),
       unit: map['unit'],
     );
   }

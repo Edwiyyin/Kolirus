@@ -8,10 +8,11 @@ import 'screens/stats_screen.dart';
 import 'screens/recipe_screen.dart';
 import 'screens/routine_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/shopping_list_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/navigation_provider.dart';
-import 'models/food_item.dart';
-import 'providers/pantry_provider.dart';
+import 'providers/food_log_provider.dart';
+import 'providers/health_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,6 +76,14 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
     });
   }
 
+  void _refreshAll() {
+    ref.read(foodLogProvider.notifier).loadLogs(DateTime.now());
+    ref.read(healthProvider.notifier).loadData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Data refreshed'), duration: Duration(seconds: 1)),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -88,8 +97,9 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
     final List<Widget> _screens = [
       const HomeScreen(),
       const RoutineScreen(),
-      const RecipeScreen(),
+      const ShoppingListScreen(), 
       const StatsScreen(),
+      const RecipeScreen(), 
       const PantryScreen(), 
     ];
 
@@ -97,11 +107,14 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
       appBar: AppBar(
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Image.asset(
-            'assets/logo.png',
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => 
-                const Icon(Icons.restaurant_menu, color: AppColors.olive),
+          child: GestureDetector(
+            onTap: _refreshAll,
+            child: Image.asset(
+              'assets/logo-removebg.png',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => 
+                  const Icon(Icons.restaurant_menu, color: AppColors.olive),
+            ),
           ),
         ),
         title: const Text('Kolirus', 
@@ -118,7 +131,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
       body: Stack(
         children: [
           IndexedStack(
-            index: currentIndex,
+            index: currentIndex > 5 ? 0 : currentIndex,
             children: _screens,
           ),
           if (_isOpen)
@@ -141,7 +154,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
             _navItem(Icons.home_rounded, 0, currentIndex),
             _navItem(Icons.calendar_month_rounded, 1, currentIndex),
             const SizedBox(width: 48), // Space for FAB
-            _navItem(Icons.menu_book_rounded, 2, currentIndex),
+            _navItem(Icons.shopping_basket_outlined, 2, currentIndex), 
             _navItem(Icons.bar_chart_rounded, 3, currentIndex),
           ],
         ),
@@ -183,15 +196,15 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
               _toggleMenu();
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ScannerScreen()));
             }),
-            const SizedBox(width: 20),
+            const SizedBox(width: 25),
+            _circularButton(Icons.menu_book_rounded, "Recipes", () { 
+              _toggleMenu();
+              ref.read(navigationProvider.notifier).state = 4;
+            }),
+            const SizedBox(width: 25),
             _circularButton(Icons.kitchen_rounded, "Kitchen", () {
               _toggleMenu();
-              ref.read(navigationProvider.notifier).state = 4; // Navigate to Pantry (Kitchen)
-            }),
-            const SizedBox(width: 20),
-            _circularButton(Icons.add_box_outlined, "Add", () {
-              _toggleMenu();
-              _showManualPantryDialog(context, ref);
+              ref.read(navigationProvider.notifier).state = 5;
             }),
           ],
         ),
@@ -213,118 +226,6 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 10)),
       ],
-    );
-  }
-
-  void _showManualPantryDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final calController = TextEditingController();
-    final proteinController = TextEditingController();
-    final carbsController = TextEditingController();
-    final fatController = TextEditingController();
-    final sugarController = TextEditingController();
-    StorageLocation selectedLocation = StorageLocation.shelf;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          left: 20, right: 20, top: 20,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('add to kitchen', style: AppTextStyles.heading1),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: AppColors.beige),
-                decoration: const InputDecoration(
-                  labelText: 'food name',
-                  labelStyle: TextStyle(color: AppColors.olive),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: TextField(
-                    controller: calController,
-                    decoration: const InputDecoration(labelText: 'calories', labelStyle: TextStyle(color: AppColors.olive)),
-                    keyboardType: TextInputType.number,
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(child: TextField(
-                    controller: proteinController,
-                    decoration: const InputDecoration(labelText: 'protein', labelStyle: TextStyle(color: AppColors.olive)),
-                    keyboardType: TextInputType.number,
-                  )),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(child: TextField(
-                    controller: carbsController,
-                    decoration: const InputDecoration(labelText: 'carbs', labelStyle: TextStyle(color: AppColors.olive)),
-                    keyboardType: TextInputType.number,
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(child: TextField(
-                    controller: fatController,
-                    decoration: const InputDecoration(labelText: 'fat', labelStyle: TextStyle(color: AppColors.olive)),
-                    keyboardType: TextInputType.number,
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(child: TextField(
-                    controller: sugarController,
-                    decoration: const InputDecoration(labelText: 'sugar', labelStyle: TextStyle(color: AppColors.olive)),
-                    keyboardType: TextInputType.number,
-                  )),
-                ],
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<StorageLocation>(
-                value: selectedLocation,
-                dropdownColor: AppColors.card,
-                items: StorageLocation.values.map((loc) => DropdownMenuItem(
-                  value: loc, child: Text(loc.name.toUpperCase(), style: const TextStyle(color: AppColors.beige)),
-                )).toList(),
-                onChanged: (val) => selectedLocation = val!,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive, minimumSize: const Size(double.infinity, 50)),
-                onPressed: () {
-                  if (nameController.text.isNotEmpty) {
-                    final item = FoodItem(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: nameController.text,
-                      calories: double.tryParse(calController.text) ?? 0,
-                      protein: double.tryParse(proteinController.text) ?? 0,
-                      carbs: double.tryParse(carbsController.text) ?? 0,
-                      fat: double.tryParse(fatController.text) ?? 0,
-                      sugar: double.tryParse(sugarController.text) ?? 0,
-                      location: selectedLocation,
-                    );
-                    ref.read(pantryProvider.notifier).addItem(item);
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

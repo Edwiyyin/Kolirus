@@ -44,7 +44,7 @@ class PantryScreen extends ConsumerWidget {
                   color: AppColors.olive,
                   location: StorageLocation.shelf,
                 ),
-                const SizedBox(height: 100), // Space for FAB padding
+                const SizedBox(height: 100), 
               ],
             ),
           ),
@@ -100,7 +100,7 @@ class _StorageSection extends ConsumerWidget {
       builder: (context, candidateData, rejectedData) => Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: candidateData.isNotEmpty ? color.withOpacity(0.1) : AppColors.primary,
+          color: candidateData.isNotEmpty ? color.withOpacity(0.1) : AppColors.card,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
             color: candidateData.isNotEmpty ? color : color.withOpacity(0.3), 
@@ -144,21 +144,27 @@ class _StorageSection extends ConsumerWidget {
                         mainAxisSpacing: 10,
                       ),
                       itemCount: items.length,
-                      itemBuilder: (context, index) => LongPressDraggable<FoodItem>(
-                        data: items[index],
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: SizedBox(
-                            width: 150,
-                            child: _PantryItemTile(item: items[index], accentColor: color, isFeedback: true),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return LongPressDraggable<FoodItem>(
+                          data: item,
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: SizedBox(
+                              width: 150,
+                              child: _PantryItemTile(item: item, accentColor: color, isFeedback: true),
+                            ),
                           ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: _PantryItemTile(item: items[index], accentColor: color),
-                        ),
-                        child: _PantryItemTile(item: items[index], accentColor: color),
-                      ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: _PantryItemTile(item: item, accentColor: color),
+                          ),
+                          child: GestureDetector(
+                            onLongPress: () => _showAddDialog(context, ref, item.location, editItem: item),
+                            child: _PantryItemTile(item: item, accentColor: color),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
@@ -167,10 +173,15 @@ class _StorageSection extends ConsumerWidget {
     );
   }
 
-  void _showAddDialog(BuildContext context, WidgetRef ref, StorageLocation loc) {
-    final nameController = TextEditingController();
-    final calController = TextEditingController();
-    String? localImagePath;
+  void _showAddDialog(BuildContext context, WidgetRef ref, StorageLocation loc, {FoodItem? editItem}) {
+    final isEditing = editItem != null;
+    final nameController = TextEditingController(text: editItem?.name ?? '');
+    final calController = TextEditingController(text: editItem?.calories.toString() ?? '');
+    final proteinController = TextEditingController(text: editItem?.protein.toString() ?? '');
+    final carbsController = TextEditingController(text: editItem?.carbs.toString() ?? '');
+    final fatController = TextEditingController(text: editItem?.fat.toString() ?? '');
+    
+    String? localImagePath = editItem?.imageUrl;
 
     showModalBottomSheet(
       context: context,
@@ -186,72 +197,122 @@ class _StorageSection extends ConsumerWidget {
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('add to ${loc.name}', style: AppTextStyles.heading2),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () async {
-                  final picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(source: ImageSource.camera);
-                  if (image != null) {
-                    setModalState(() => localImagePath = image.path);
-                  }
-                },
-                child: Container(
-                  height: 100,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.olive),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(isEditing ? 'Edit Item' : 'Add to ${loc.name}', style: AppTextStyles.heading2),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+                    if (image != null) {
+                      setModalState(() => localImagePath = image.path);
+                    }
+                  },
+                  child: Container(
+                    height: 100,
+                    width: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.olive),
+                    ),
+                    child: localImagePath != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: localImagePath!.startsWith('http') 
+                                ? Image.network(localImagePath!, fit: BoxFit.cover)
+                                : Image.file(File(localImagePath!), fit: BoxFit.cover),
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.camera_alt, color: AppColors.olive),
+                              Text('Photo', style: TextStyle(color: AppColors.olive, fontSize: 10)),
+                            ],
+                          ),
                   ),
-                  child: localImagePath != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(9),
-                          child: Image.file(File(localImagePath!), fit: BoxFit.cover),
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.camera_alt, color: AppColors.olive),
-                            Text('Photo', style: TextStyle(color: AppColors.olive, fontSize: 10)),
-                          ],
-                        ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'food name', labelStyle: TextStyle(color: AppColors.olive)),
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: calController,
-                decoration: const InputDecoration(labelText: 'calories', labelStyle: TextStyle(color: AppColors.olive)),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive, minimumSize: const Size(double.infinity, 50)),
-                onPressed: () {
-                  if (nameController.text.isNotEmpty) {
-                    final item = FoodItem(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: nameController.text,
-                      calories: double.tryParse(calController.text) ?? 0,
-                      location: loc,
-                      imageUrl: localImagePath,
-                    );
-                    ref.read(pantryProvider.notifier).addItem(item);
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('save', style: TextStyle(color: Colors.black)),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(labelText: 'food name', labelStyle: TextStyle(color: AppColors.olive)),
+                ),
+                Row(
+                  children: [
+                    Expanded(child: TextField(
+                      controller: calController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(labelText: 'calories', labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(
+                      controller: proteinController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(labelText: 'protein', labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    )),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(child: TextField(
+                      controller: carbsController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(labelText: 'carbs', labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(
+                      controller: fatController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(labelText: 'fat', labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive, minimumSize: const Size(double.infinity, 50)),
+                  onPressed: () {
+                    if (nameController.text.isNotEmpty) {
+                      final item = FoodItem(
+                        id: isEditing ? editItem.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: nameController.text,
+                        calories: double.tryParse(calController.text) ?? 0,
+                        protein: double.tryParse(proteinController.text) ?? 0,
+                        carbs: double.tryParse(carbsController.text) ?? 0,
+                        fat: double.tryParse(fatController.text) ?? 0,
+                        location: loc,
+                        imageUrl: localImagePath,
+                        barcode: editItem?.barcode,
+                        brand: editItem?.brand,
+                        nutriScore: editItem?.nutriScore,
+                        allergens: editItem?.allergens ?? [],
+                        expiryDate: editItem?.expiryDate,
+                        addedDate: editItem?.addedDate,
+                        saturatedFat: editItem?.saturatedFat ?? 0,
+                        sodium: editItem?.sodium ?? 0,
+                        cholesterol: editItem?.cholesterol ?? 0,
+                        fiber: editItem?.fiber ?? 0,
+                        sugar: editItem?.sugar ?? 0,
+                      );
+                      if (isEditing) {
+                        ref.read(pantryProvider.notifier).updateItem(item);
+                      } else {
+                        ref.read(pantryProvider.notifier).addItem(item);
+                      }
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Text(isEditing ? 'Update' : 'Save', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -274,7 +335,7 @@ class _PantryItemTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.dark,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: accentColor.withOpacity(0.2)),
         boxShadow: isFeedback ? [const BoxShadow(color: Colors.black54, blurRadius: 10)] : null,
@@ -324,9 +385,9 @@ class _PantryItemTile extends ConsumerWidget {
 
   Widget _buildImage(String path) {
     if (path.startsWith('http')) {
-      return Image.network(path, width: 50, height: double.infinity, fit: BoxFit.cover);
+      return Image.network(path, width: 50, height: 60, fit: BoxFit.cover);
     } else {
-      return Image.file(File(path), width: 50, height: double.infinity, fit: BoxFit.cover);
+      return Image.file(File(path), width: 50, height: 60, fit: BoxFit.cover);
     }
   }
 }

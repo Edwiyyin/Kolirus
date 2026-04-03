@@ -30,14 +30,14 @@ class StatsScreen extends ConsumerWidget {
                 title: 'steps',
                 value: '${health?.steps ?? 0}',
                 icon: Icons.directions_walk,
-                color: AppColors.olive,
+                color: AppColors.accent,
               )),
               const SizedBox(width: 12),
               Expanded(child: _HealthStatCard(
                 title: 'weight',
                 value: '${health?.weight ?? 0} kg',
                 icon: Icons.monitor_weight,
-                color: AppColors.olive,
+                color: AppColors.accent,
                 onTap: () => _showWeightDialog(context, ref),
               )),
             ],
@@ -66,7 +66,7 @@ class StatsScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.olive.withOpacity(0.2)),
+              border: Border.all(color: AppColors.accent.withOpacity(0.2)),
             ),
             child: Column(
               children: [
@@ -80,21 +80,21 @@ class StatsScreen extends ConsumerWidget {
                         PieChartSectionData(
                           value: totals['protein'] ?? 1,
                           title: 'P',
-                          color: AppColors.olive,
+                          color: AppColors.accent,
                           radius: 50,
                           titleStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                         ),
                         PieChartSectionData(
                           value: totals['carbs'] ?? 1,
                           title: 'C',
-                          color: AppColors.olive.withOpacity(0.6),
+                          color: AppColors.accent.withOpacity(0.6),
                           radius: 45,
                           titleStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                         ),
                         PieChartSectionData(
                           value: totals['fat'] ?? 1,
                           title: 'F',
-                          color: AppColors.olive.withOpacity(0.3),
+                          color: AppColors.accent.withOpacity(0.3),
                           radius: 40,
                           titleStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                         ),
@@ -110,10 +110,14 @@ class StatsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Text('details', style: AppTextStyles.heading2),
           const SizedBox(height: 12),
+          _DetailRow('protein', '${totals['protein']?.toStringAsFixed(1) ?? 0}g'),
+          _DetailRow('carbohydrates', '${totals['carbs']?.toStringAsFixed(1) ?? 0}g'),
+          _DetailRow('fat', '${totals['fat']?.toStringAsFixed(1) ?? 0}g'),
           _DetailRow('saturated fat', '${totals['saturatedFat']?.toStringAsFixed(1) ?? 0}g'),
           _DetailRow('sodium', '${totals['sodium']?.toStringAsFixed(1) ?? 0}mg'),
           _DetailRow('fiber', '${totals['fiber']?.toStringAsFixed(1) ?? 0}g'),
           _DetailRow('sugar', '${totals['sugar']?.toStringAsFixed(1) ?? 0}g'),
+          _DetailRow('cholesterol', '${totals['cholesterol']?.toStringAsFixed(1) ?? 0}mg'),
           const SizedBox(height: 100),
         ],
       ),
@@ -136,7 +140,7 @@ class StatsScreen extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text('Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}', style: const TextStyle(color: Colors.white)),
-                trailing: const Icon(Icons.calendar_today, color: AppColors.olive),
+                trailing: const Icon(Icons.calendar_today, color: AppColors.accent),
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
@@ -150,7 +154,7 @@ class StatsScreen extends ConsumerWidget {
               TextField(
                 controller: controller,
                 style: const TextStyle(color: AppColors.beige),
-                decoration: const InputDecoration(labelText: 'kg', labelStyle: TextStyle(color: AppColors.olive)),
+                decoration: const InputDecoration(labelText: 'kg', labelStyle: TextStyle(color: AppColors.accent)),
                 keyboardType: TextInputType.number,
                 autofocus: true,
               ),
@@ -159,7 +163,7 @@ class StatsScreen extends ConsumerWidget {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('cancel', style: TextStyle(color: AppColors.beige))),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
               onPressed: () {
                 final w = double.tryParse(controller.text);
                 if (w != null) {
@@ -213,10 +217,10 @@ class _WeightChart extends StatelessWidget {
           LineChartBarData(
             spots: entries.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weight)).toList(),
             isCurved: true,
-            color: AppColors.olive,
+            color: AppColors.accent,
             barWidth: 3,
             dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(show: true, color: AppColors.olive.withOpacity(0.1)),
+            belowBarData: BarAreaData(show: true, color: AppColors.accent.withOpacity(0.1)),
           ),
         ],
       ),
@@ -262,9 +266,9 @@ class _MacroLegend extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _LegendItem('protein', AppColors.olive),
-        _LegendItem('carbs', AppColors.olive.withOpacity(0.6)),
-        _LegendItem('fat', AppColors.olive.withOpacity(0.3)),
+        _LegendItem('protein', AppColors.accent),
+        _LegendItem('carbs', AppColors.accent.withOpacity(0.6)),
+        _LegendItem('fat', AppColors.accent.withOpacity(0.3)),
       ],
     );
   }
@@ -297,7 +301,7 @@ class _DetailRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: AppTextStyles.body),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.olive)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accent)),
         ],
       ),
     );
