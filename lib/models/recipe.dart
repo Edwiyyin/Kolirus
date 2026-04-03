@@ -13,6 +13,17 @@ class Recipe {
   final int servings;
   final String category;
 
+  // Nutritional info
+  final double calories;
+  final double protein;
+  final double carbs;
+  final double fat;
+  final double saturatedFat;
+  final double sodium;
+  final double cholesterol;
+  final double fiber;
+  final double sugar;
+
   Recipe({
     this.id,
     required this.name,
@@ -25,6 +36,15 @@ class Recipe {
     this.cookTime = 0,
     this.servings = 1,
     this.category = 'Main',
+    this.calories = 0,
+    this.protein = 0,
+    this.carbs = 0,
+    this.fat = 0,
+    this.saturatedFat = 0,
+    this.sodium = 0,
+    this.cholesterol = 0,
+    this.fiber = 0,
+    this.sugar = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,6 +60,15 @@ class Recipe {
       'cookTime': cookTime,
       'servings': servings,
       'category': category,
+      'calories': calories,
+      'protein': protein,
+      'carbs': carbs,
+      'fat': fat,
+      'saturatedFat': saturatedFat,
+      'sodium': sodium,
+      'cholesterol': cholesterol,
+      'fiber': fiber,
+      'sugar': sugar,
     };
   }
 
@@ -58,6 +87,15 @@ class Recipe {
       cookTime: map['cookTime'] ?? 0,
       servings: map['servings'] ?? 1,
       category: map['category'] ?? 'Main',
+      calories: map['calories']?.toDouble() ?? 0.0,
+      protein: map['protein']?.toDouble() ?? 0.0,
+      carbs: map['carbs']?.toDouble() ?? 0.0,
+      fat: map['fat']?.toDouble() ?? 0.0,
+      saturatedFat: map['saturatedFat']?.toDouble() ?? 0.0,
+      sodium: map['sodium']?.toDouble() ?? 0.0,
+      cholesterol: map['cholesterol']?.toDouble() ?? 0.0,
+      fiber: map['fiber']?.toDouble() ?? 0.0,
+      sugar: map['sugar']?.toDouble() ?? 0.0,
     );
   }
 }

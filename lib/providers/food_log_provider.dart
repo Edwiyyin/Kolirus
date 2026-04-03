@@ -29,6 +29,17 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
     await loadLogs(DateTime.now());
   }
 
+  /// Used by routine provider to remove a log when unchecking
+  Future<void> removeLogByRoutineId(String foodItemId, String foodName) async {
+    final toRemove = state.where((l) =>
+    l.foodItemId == foodItemId && l.foodName == foodName
+    ).toList();
+    for (final log in toRemove) {
+      if (log.id != null) await _db.deleteMealLog(log.id!);
+    }
+    await loadLogs(DateTime.now());
+  }
+
   Future<void> addMeal(FoodItem item, double quantity, MealType type) async {
     final ratio = quantity / 100.0;
     final log = MealLog(
@@ -48,18 +59,22 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       fiber: item.fiber * ratio,
       sugar: item.sugar * ratio,
     );
-
     await addLog(log);
   }
 
   Map<String, double> getDailyTotals() {
-    double calories = 0, protein = 0, carbs = 0, fat = 0, sugar = 0;
+    double calories = 0, protein = 0, carbs = 0, fat = 0, sugar = 0,
+        saturatedFat = 0, sodium = 0, cholesterol = 0, fiber = 0;
     for (var log in state) {
       calories += log.calories;
       protein += log.protein;
       carbs += log.carbs;
       fat += log.fat;
       sugar += log.sugar;
+      saturatedFat += log.saturatedFat;
+      sodium += log.sodium;
+      cholesterol += log.cholesterol;
+      fiber += log.fiber;
     }
     return {
       'calories': calories,
@@ -67,6 +82,10 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       'carbs': carbs,
       'fat': fat,
       'sugar': sugar,
+      'saturatedFat': saturatedFat,
+      'sodium': sodium,
+      'cholesterol': cholesterol,
+      'fiber': fiber,
     };
   }
 }

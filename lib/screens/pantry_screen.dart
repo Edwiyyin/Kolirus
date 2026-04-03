@@ -13,9 +13,12 @@ class PantryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pantry = ref.watch(pantryProvider);
 
-    final shelfItems = pantry.where((item) => item.location == StorageLocation.shelf).toList();
-    final fridgeItems = pantry.where((item) => item.location == StorageLocation.fridge).toList();
-    final freezerItems = pantry.where((item) => item.location == StorageLocation.freezer).toList();
+    final shelfItems =
+    pantry.where((item) => item.location == StorageLocation.shelf).toList();
+    final fridgeItems =
+    pantry.where((item) => item.location == StorageLocation.fridge).toList();
+    final freezerItems =
+    pantry.where((item) => item.location == StorageLocation.freezer).toList();
 
     return Column(
       children: [
@@ -44,7 +47,7 @@ class PantryScreen extends ConsumerWidget {
                   color: AppColors.olive,
                   location: StorageLocation.shelf,
                 ),
-                const SizedBox(height: 100), 
+                const SizedBox(height: 100),
               ],
             ),
           ),
@@ -82,7 +85,8 @@ class _StorageSection extends ConsumerWidget {
           imageUrl: item.imageUrl,
           nutriScore: item.nutriScore,
           allergens: item.allergens,
-          location: location,
+          ingredientsText: item.ingredientsText,
+          location: location, // Move to new location
           expiryDate: item.expiryDate,
           addedDate: item.addedDate,
           calories: item.calories,
@@ -96,76 +100,108 @@ class _StorageSection extends ConsumerWidget {
           sugar: item.sugar,
         );
         ref.read(pantryProvider.notifier).updateItem(updatedItem);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.name} moved to ${location.name}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
       },
       builder: (context, candidateData, rejectedData) => Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: candidateData.isNotEmpty ? color.withOpacity(0.1) : AppColors.card,
+          color: candidateData.isNotEmpty
+              ? color.withOpacity(0.12)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: candidateData.isNotEmpty ? color : color.withOpacity(0.3), 
-            width: candidateData.isNotEmpty ? 3 : 2
+            color: candidateData.isNotEmpty
+                ? color
+                : color.withOpacity(0.3),
+            width: candidateData.isNotEmpty ? 3 : 2,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.2),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(13)),
               ),
               child: Row(
                 children: [
                   Icon(icon, color: color, size: 24),
                   const SizedBox(width: 8),
-                  Text(title, style: AppTextStyles.heading2.copyWith(color: color)),
+                  Text(title,
+                      style: AppTextStyles.heading2.copyWith(color: color)),
+                  if (candidateData.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text('Drop here',
+                        style: TextStyle(color: color, fontSize: 12)),
+                  ],
                   const Spacer(),
                   IconButton(
                     icon: Icon(Icons.add_circle, color: color),
-                    onPressed: () => _showAddDialog(context, ref, location),
+                    onPressed: () =>
+                        _showAddDialog(context, ref, location),
                   ),
-                  Text('${items.length}', style: const TextStyle(color: Colors.white)),
+                  Text('${items.length}',
+                      style: const TextStyle(color: Colors.white)),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: items.isEmpty
-                  ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Empty', style: TextStyle(color: Colors.white24))))
+                  ? const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text('Empty',
+                          style: TextStyle(color: Colors.white24))))
                   : GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 1.8,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.8,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return LongPressDraggable<FoodItem>(
+                    data: item,
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: SizedBox(
+                        width: 150,
+                        child: _PantryItemTile(
+                            item: item,
+                            accentColor: color,
+                            isFeedback: true),
                       ),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return LongPressDraggable<FoodItem>(
-                          data: item,
-                          feedback: Material(
-                            color: Colors.transparent,
-                            child: SizedBox(
-                              width: 150,
-                              child: _PantryItemTile(item: item, accentColor: color, isFeedback: true),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
-                            child: _PantryItemTile(item: item, accentColor: color),
-                          ),
-                          child: GestureDetector(
-                            onLongPress: () => _showAddDialog(context, ref, item.location, editItem: item),
-                            child: _PantryItemTile(item: item, accentColor: color),
-                          ),
-                        );
-                      },
                     ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
+                      child: _PantryItemTile(
+                          item: item, accentColor: color),
+                    ),
+                    child: GestureDetector(
+                      onLongPress: () =>
+                          _showAddDialog(context, ref, item.location,
+                              editItem: item),
+                      child: _PantryItemTile(
+                          item: item, accentColor: color),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -173,14 +209,24 @@ class _StorageSection extends ConsumerWidget {
     );
   }
 
-  void _showAddDialog(BuildContext context, WidgetRef ref, StorageLocation loc, {FoodItem? editItem}) {
+  void _showAddDialog(BuildContext context, WidgetRef ref,
+      StorageLocation loc, {FoodItem? editItem}) {
     final isEditing = editItem != null;
-    final nameController = TextEditingController(text: editItem?.name ?? '');
-    final calController = TextEditingController(text: editItem?.calories.toString() ?? '');
-    final proteinController = TextEditingController(text: editItem?.protein.toString() ?? '');
-    final carbsController = TextEditingController(text: editItem?.carbs.toString() ?? '');
-    final fatController = TextEditingController(text: editItem?.fat.toString() ?? '');
-    
+    final nameController =
+    TextEditingController(text: editItem?.name ?? '');
+    final calController =
+    TextEditingController(text: editItem?.calories.toString() ?? '');
+    final proteinController =
+    TextEditingController(text: editItem?.protein.toString() ?? '');
+    final carbsController =
+    TextEditingController(text: editItem?.carbs.toString() ?? '');
+    final fatController =
+    TextEditingController(text: editItem?.fat.toString() ?? '');
+    final fiberController =
+    TextEditingController(text: editItem?.fiber.toString() ?? '');
+    final sodiumController =
+    TextEditingController(text: editItem?.sodium.toString() ?? '');
+
     String? localImagePath = editItem?.imageUrl;
 
     showModalBottomSheet(
@@ -191,7 +237,9 @@ class _StorageSection extends ConsumerWidget {
         builder: (context, setModalState) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           decoration: const BoxDecoration(
             color: AppColors.background,
@@ -201,12 +249,14 @@ class _StorageSection extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(isEditing ? 'Edit Item' : 'Add to ${loc.name}', style: AppTextStyles.heading2),
+                Text(isEditing ? 'Edit Item' : 'Add to ${loc.name}',
+                    style: AppTextStyles.heading2),
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: () async {
                     final picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+                    final XFile? image =
+                    await picker.pickImage(source: ImageSource.camera);
                     if (image != null) {
                       setModalState(() => localImagePath = image.path);
                     }
@@ -221,95 +271,155 @@ class _StorageSection extends ConsumerWidget {
                     ),
                     child: localImagePath != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(9),
-                            child: localImagePath!.startsWith('http') 
-                                ? Image.network(localImagePath!, fit: BoxFit.cover)
-                                : Image.file(File(localImagePath!), fit: BoxFit.cover),
-                          )
+                      borderRadius: BorderRadius.circular(9),
+                      child: localImagePath!.startsWith('http')
+                          ? Image.network(localImagePath!,
+                          fit: BoxFit.cover)
+                          : Image.file(File(localImagePath!),
+                          fit: BoxFit.cover),
+                    )
                         : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.camera_alt, color: AppColors.olive),
-                              Text('Photo', style: TextStyle(color: AppColors.olive, fontSize: 10)),
-                            ],
-                          ),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt, color: AppColors.olive),
+                        Text('Photo',
+                            style: TextStyle(
+                                color: AppColors.olive, fontSize: 10)),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'food name', labelStyle: TextStyle(color: AppColors.olive)),
+                  decoration: const InputDecoration(
+                      labelText: 'food name',
+                      labelStyle: TextStyle(color: AppColors.olive)),
                 ),
                 Row(
                   children: [
-                    Expanded(child: TextField(
-                      controller: calController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'calories', labelStyle: TextStyle(color: AppColors.olive)),
-                      keyboardType: TextInputType.number,
-                    )),
+                    Expanded(
+                        child: TextField(
+                          controller: calController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'calories',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
                     const SizedBox(width: 10),
-                    Expanded(child: TextField(
-                      controller: proteinController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'protein', labelStyle: TextStyle(color: AppColors.olive)),
-                      keyboardType: TextInputType.number,
-                    )),
+                    Expanded(
+                        child: TextField(
+                          controller: proteinController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'protein',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
                   ],
                 ),
                 Row(
                   children: [
-                    Expanded(child: TextField(
-                      controller: carbsController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'carbs', labelStyle: TextStyle(color: AppColors.olive)),
-                      keyboardType: TextInputType.number,
-                    )),
+                    Expanded(
+                        child: TextField(
+                          controller: carbsController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'carbs',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
                     const SizedBox(width: 10),
-                    Expanded(child: TextField(
-                      controller: fatController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'fat', labelStyle: TextStyle(color: AppColors.olive)),
-                      keyboardType: TextInputType.number,
-                    )),
+                    Expanded(
+                        child: TextField(
+                          controller: fatController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'fat',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                        child: TextField(
+                          controller: fiberController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'fiber',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: TextField(
+                          controller: sodiumController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                              labelText: 'sodium',
+                              labelStyle: TextStyle(color: AppColors.olive)),
+                          keyboardType: TextInputType.number,
+                        )),
                   ],
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive, minimumSize: const Size(double.infinity, 50)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.olive,
+                      minimumSize: const Size(double.infinity, 50)),
                   onPressed: () {
                     if (nameController.text.isNotEmpty) {
                       final item = FoodItem(
-                        id: isEditing ? editItem.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                        id: isEditing
+                            ? editItem.id
+                            : DateTime.now()
+                            .millisecondsSinceEpoch
+                            .toString(),
                         name: nameController.text,
-                        calories: double.tryParse(calController.text) ?? 0,
-                        protein: double.tryParse(proteinController.text) ?? 0,
-                        carbs: double.tryParse(carbsController.text) ?? 0,
+                        calories:
+                        double.tryParse(calController.text) ?? 0,
+                        protein:
+                        double.tryParse(proteinController.text) ?? 0,
+                        carbs:
+                        double.tryParse(carbsController.text) ?? 0,
                         fat: double.tryParse(fatController.text) ?? 0,
+                        fiber:
+                        double.tryParse(fiberController.text) ??
+                            editItem?.fiber ?? 0,
+                        sodium:
+                        double.tryParse(sodiumController.text) ??
+                            editItem?.sodium ?? 0,
                         location: loc,
                         imageUrl: localImagePath,
                         barcode: editItem?.barcode,
                         brand: editItem?.brand,
                         nutriScore: editItem?.nutriScore,
                         allergens: editItem?.allergens ?? [],
+                        ingredientsText: editItem?.ingredientsText,
                         expiryDate: editItem?.expiryDate,
                         addedDate: editItem?.addedDate,
                         saturatedFat: editItem?.saturatedFat ?? 0,
-                        sodium: editItem?.sodium ?? 0,
                         cholesterol: editItem?.cholesterol ?? 0,
-                        fiber: editItem?.fiber ?? 0,
                         sugar: editItem?.sugar ?? 0,
                       );
                       if (isEditing) {
-                        ref.read(pantryProvider.notifier).updateItem(item);
+                        ref
+                            .read(pantryProvider.notifier)
+                            .updateItem(item);
                       } else {
                         ref.read(pantryProvider.notifier).addItem(item);
                       }
                       Navigator.pop(context);
                     }
                   },
-                  child: Text(isEditing ? 'Update' : 'Save', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  child: Text(isEditing ? 'Update' : 'Save',
+                      style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -325,11 +435,10 @@ class _PantryItemTile extends ConsumerWidget {
   final Color accentColor;
   final bool isFeedback;
 
-  const _PantryItemTile({
-    required this.item, 
-    required this.accentColor, 
-    this.isFeedback = false
-  });
+  const _PantryItemTile(
+      {required this.item,
+        required this.accentColor,
+        this.isFeedback = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -338,7 +447,12 @@ class _PantryItemTile extends ConsumerWidget {
         color: AppColors.background,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: accentColor.withOpacity(0.2)),
-        boxShadow: isFeedback ? [const BoxShadow(color: Colors.black54, blurRadius: 10)] : null,
+        boxShadow: isFeedback
+            ? [
+          const BoxShadow(
+              color: Colors.black54, blurRadius: 10)
+        ]
+            : null,
       ),
       child: Stack(
         children: [
@@ -346,7 +460,8 @@ class _PantryItemTile extends ConsumerWidget {
             children: [
               if (item.imageUrl != null)
                 ClipRRect(
-                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                  borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(9)),
                   child: _buildImage(item.imageUrl!),
                 ),
               Expanded(
@@ -356,11 +471,16 @@ class _PantryItemTile extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(item.name, 
-                        style: const TextStyle(color: AppColors.beige, fontSize: 13, fontWeight: FontWeight.bold),
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                            color: AppColors.beige,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text('${item.calories.toInt()} kcal', style: AppTextStyles.caption),
+                      Text('${item.calories.toInt()} kcal',
+                          style: AppTextStyles.caption),
                     ],
                   ),
                 ),
@@ -374,8 +494,10 @@ class _PantryItemTile extends ConsumerWidget {
               child: IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
-                onPressed: () => ref.read(pantryProvider.notifier).removeItem(item.id!),
+                icon: const Icon(Icons.close,
+                    size: 16, color: Colors.redAccent),
+                onPressed: () =>
+                    ref.read(pantryProvider.notifier).removeItem(item.id!),
               ),
             ),
         ],

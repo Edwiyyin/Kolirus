@@ -10,6 +10,12 @@ class MealRoutine {
   final String? time;
   final bool isEaten;
 
+  // Optional macro data for manual entries
+  final double? calories;
+  final double? protein;
+  final double? carbs;
+  final double? fat;
+
   MealRoutine({
     required this.id,
     required this.date,
@@ -18,6 +24,10 @@ class MealRoutine {
     this.manualEntry,
     this.time,
     this.isEaten = false,
+    this.calories,
+    this.protein,
+    this.carbs,
+    this.fat,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +39,10 @@ class MealRoutine {
       'manualEntry': manualEntry,
       'time': time,
       'isEaten': isEaten ? 1 : 0,
+      'calories': calories,
+      'protein': protein,
+      'carbs': carbs,
+      'fat': fat,
     };
   }
 
@@ -41,6 +55,10 @@ class MealRoutine {
       manualEntry: map['manualEntry'],
       time: map['time'],
       isEaten: map['isEaten'] == 1,
+      calories: map['calories']?.toDouble(),
+      protein: map['protein']?.toDouble(),
+      carbs: map['carbs']?.toDouble(),
+      fat: map['fat']?.toDouble(),
     );
   }
 
@@ -52,6 +70,10 @@ class MealRoutine {
     String? manualEntry,
     String? time,
     bool? isEaten,
+    double? calories,
+    double? protein,
+    double? carbs,
+    double? fat,
   }) {
     return MealRoutine(
       id: id ?? this.id,
@@ -61,6 +83,10 @@ class MealRoutine {
       manualEntry: manualEntry ?? this.manualEntry,
       time: time ?? this.time,
       isEaten: isEaten ?? this.isEaten,
+      calories: calories ?? this.calories,
+      protein: protein ?? this.protein,
+      carbs: carbs ?? this.carbs,
+      fat: fat ?? this.fat,
     );
   }
 }

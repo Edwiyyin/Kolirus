@@ -4,10 +4,9 @@ import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../models/meal_routine.dart';
 import '../providers/routine_provider.dart';
-import '../providers/pantry_provider.dart';
 import '../models/recipe.dart';
 import '../screens/recipe_screen.dart';
-import '../models/meal_type.dart'; // Unified MealType import
+import '../models/meal_type.dart';
 
 class RoutineScreen extends ConsumerStatefulWidget {
   const RoutineScreen({super.key});
@@ -43,9 +42,11 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
           child: ListView.builder(
             controller: _dayScrollController,
             scrollDirection: Axis.horizontal,
-            itemCount: 60, 
+            itemCount: 60,
             itemBuilder: (context, index) {
-              final date = DateTime.now().subtract(const Duration(days: 30)).add(Duration(days: index));
+              final date = DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .add(Duration(days: index));
               final isSelected = DateUtils.isSameDay(date, _selectedDate);
               final isToday = DateUtils.isSameDay(date, DateTime.now());
 
@@ -60,25 +61,22 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.olive : Colors.transparent,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: isToday ? AppColors.olive : Colors.white10),
+                    border: Border.all(
+                        color: isToday ? AppColors.olive : Colors.white10),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(DateFormat('E').format(date), 
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white38,
-                          fontSize: 12
-                        )
-                      ),
+                      Text(DateFormat('E').format(date),
+                          style: TextStyle(
+                              color: isSelected ? Colors.black : Colors.white38,
+                              fontSize: 12)),
                       const SizedBox(height: 4),
-                      Text(DateFormat('d').format(date), 
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : AppColors.beige,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18
-                        )
-                      ),
+                      Text(DateFormat('d').format(date),
+                          style: TextStyle(
+                              color: isSelected ? Colors.black : AppColors.beige,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18)),
                     ],
                   ),
                 ),
@@ -86,7 +84,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             },
           ),
         ),
-        
+
         // Hourly Calendar
         Expanded(
           child: ListView.builder(
@@ -94,12 +92,15 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             itemCount: 24,
             itemBuilder: (context, hour) {
               final timeStr = '${hour.toString().padLeft(2, '0')}:00';
-              final entriesAtHour = routineEntries.where((e) => e.time == timeStr).toList();
+              final entriesAtHour =
+              routineEntries.where((e) => e.time == timeStr).toList();
 
               return Container(
                 constraints: const BoxConstraints(minHeight: 80),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppColors.beige.withOpacity(0.05))),
+                  border: Border(
+                      bottom:
+                      BorderSide(color: AppColors.beige.withOpacity(0.05))),
                 ),
                 child: Row(
                   children: [
@@ -111,14 +112,16 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          ...entriesAtHour.map((entry) => _RoutineItemTile(entry: entry)),
+                          ...entriesAtHour.map((entry) =>
+                              _RoutineItemTile(entry: entry, onEdit: () => _editEntry(entry))),
                           GestureDetector(
                             onTap: () => _addMealToTime(hour),
                             child: Container(
                               height: 40,
                               width: double.infinity,
                               color: Colors.transparent,
-                              child: const Icon(Icons.add, color: Colors.white10, size: 20),
+                              child: const Icon(Icons.add,
+                                  color: Colors.white10, size: 20),
                             ),
                           ),
                         ],
@@ -132,6 +135,15 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         ),
       ],
     );
+  }
+
+  void _editEntry(MealRoutine entry) {
+    if (entry.recipeId != null) {
+      // Edit recipe entry - just show name change for now
+      _showManualEntryDialog(entry.time ?? '00:00', editEntry: entry);
+    } else {
+      _showManualEntryDialog(entry.time ?? '00:00', editEntry: entry);
+    }
   }
 
   void _addMealToTime(int hour) {
@@ -153,7 +165,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.book, color: AppColors.olive),
-              title: const Text('Add from recipes', style: TextStyle(color: AppColors.beige)),
+              title: const Text('Add from recipes',
+                  style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showRecipePicker(timeStr);
@@ -161,7 +174,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.edit, color: AppColors.olive),
-              title: const Text('Manual entry', style: TextStyle(color: AppColors.beige)),
+              title: const Text('Manual entry',
+                  style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showManualEntryDialog(timeStr);
@@ -179,76 +193,185 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         children: [
-          const Padding(padding: EdgeInsets.all(16), child: Text('Select Recipe', style: AppTextStyles.heading2)),
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Select Recipe', style: AppTextStyles.heading2)),
           Expanded(
-            child: recipes.isEmpty 
-              ? const Center(child: Text('No recipes found'))
-              : ListView.builder(
-                  itemCount: recipes.length,
-                  itemBuilder: (context, index) {
-                    final r = recipes[index];
-                    return ListTile(
-                      title: Text(r.name, style: const TextStyle(color: Colors.white)),
-                      onTap: () {
-                        final entry = MealRoutine(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          date: _selectedDate,
-                          mealType: MealType.Lunch,
-                          recipeId: r.id,
-                          manualEntry: r.name,
-                          time: time,
-                        );
-                        ref.read(routineProvider.notifier).addEntry(entry);
-                        Navigator.pop(context);
-                      },
+            child: recipes.isEmpty
+                ? const Center(child: Text('No recipes found'))
+                : ListView.builder(
+              itemCount: recipes.length,
+              itemBuilder: (context, index) {
+                final r = recipes[index];
+                return ListTile(
+                  title: Text(r.name,
+                      style: const TextStyle(color: Colors.white)),
+                  subtitle: r.calories > 0
+                      ? Text('${r.calories.toInt()} kcal',
+                      style: AppTextStyles.caption)
+                      : null,
+                  onTap: () {
+                    final entry = MealRoutine(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      date: _selectedDate,
+                      mealType: MealType.Lunch,
+                      recipeId: r.id,
+                      manualEntry: r.name,
+                      time: time,
+                      calories: r.calories,
+                      protein: r.protein,
+                      carbs: r.carbs,
+                      fat: r.fat,
                     );
+                    ref.read(routineProvider.notifier).addEntry(entry);
+                    Navigator.pop(context);
                   },
-                ),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showManualEntryDialog(String time) {
-    final controller = TextEditingController();
+  void _showManualEntryDialog(String time, {MealRoutine? editEntry}) {
+    final isEditing = editEntry != null;
+    final controller =
+    TextEditingController(text: editEntry?.manualEntry ?? '');
+    final calController = TextEditingController(
+        text: editEntry?.calories?.toStringAsFixed(0) ?? '');
+    final proteinController = TextEditingController(
+        text: editEntry?.protein?.toStringAsFixed(0) ?? '');
+    final carbsController = TextEditingController(
+        text: editEntry?.carbs?.toStringAsFixed(0) ?? '');
+    final fatController =
+    TextEditingController(text: editEntry?.fat?.toStringAsFixed(0) ?? '');
+    MealType selectedType = editEntry?.mealType ?? MealType.Lunch;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: Text('Meal at $time'),
-        content: TextField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Meal name',
-            labelStyle: TextStyle(color: AppColors.olive),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          title: Text(isEditing ? 'Edit Meal' : 'Meal at $time',
+              style: const TextStyle(color: AppColors.beige)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Meal name',
+                    labelStyle: TextStyle(color: AppColors.olive),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<MealType>(
+                  value: selectedType,
+                  dropdownColor: AppColors.card,
+                  decoration: const InputDecoration(
+                      labelText: 'Meal type',
+                      labelStyle: TextStyle(color: AppColors.olive)),
+                  items: MealType.values
+                      .map((t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(t.name,
+                          style: const TextStyle(color: Colors.white))))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedType = v ?? MealType.Lunch),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: calController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Calories (optional)',
+                    labelStyle: TextStyle(color: AppColors.olive),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: proteinController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                          labelText: 'Protein (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: carbsController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                          labelText: 'Carbs (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: fatController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                          labelText: 'Fat (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ]),
+              ],
+            ),
           ),
-          autofocus: true,
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              style:
+              ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  final entry = MealRoutine(
+                    id: isEditing
+                        ? editEntry.id
+                        : DateTime.now().millisecondsSinceEpoch.toString(),
+                    date: isEditing ? editEntry.date : _selectedDate,
+                    mealType: selectedType,
+                    manualEntry: controller.text,
+                    time: time,
+                    isEaten: isEditing ? editEntry.isEaten : false,
+                    calories: double.tryParse(calController.text),
+                    protein: double.tryParse(proteinController.text),
+                    carbs: double.tryParse(carbsController.text),
+                    fat: double.tryParse(fatController.text),
+                  );
+                  if (isEditing) {
+                    ref.read(routineProvider.notifier).updateEntry(entry);
+                  } else {
+                    ref.read(routineProvider.notifier).addEntry(entry);
+                  }
+                }
+                Navigator.pop(context);
+              },
+              child: Text(isEditing ? 'Update' : 'Save',
+                  style: const TextStyle(color: Colors.black)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                final entry = MealRoutine(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  date: _selectedDate,
-                  mealType: MealType.Lunch,
-                  manualEntry: controller.text,
-                  time: time,
-                );
-                ref.read(routineProvider.notifier).addEntry(entry);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.black)),
-          ),
-        ],
       ),
     );
   }
@@ -256,40 +379,60 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 
 class _RoutineItemTile extends ConsumerWidget {
   final MealRoutine entry;
-  const _RoutineItemTile({required this.entry});
+  final VoidCallback onEdit;
+  const _RoutineItemTile({required this.entry, required this.onEdit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: entry.isEaten ? AppColors.olive.withOpacity(0.1) : AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: entry.isEaten ? AppColors.olive : Colors.white10),
-      ),
-      child: Row(
-        children: [
-          Checkbox(
-            value: entry.isEaten,
-            activeColor: AppColors.olive,
-            onChanged: (_) => ref.read(routineProvider.notifier).toggleEaten(entry),
-          ),
-          Expanded(
-            child: Text(
-              entry.manualEntry ?? 'Meal',
-              style: TextStyle(
-                color: entry.isEaten ? AppColors.olive : Colors.white,
-                fontWeight: FontWeight.bold,
-                decoration: entry.isEaten ? TextDecoration.lineThrough : null,
+    return GestureDetector(
+      onLongPress: onEdit,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: entry.isEaten
+              ? AppColors.olive.withOpacity(0.1)
+              : AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: entry.isEaten ? AppColors.olive : Colors.white10),
+        ),
+        child: Row(
+          children: [
+            Checkbox(
+              value: entry.isEaten,
+              activeColor: AppColors.olive,
+              onChanged: (_) =>
+                  ref.read(routineProvider.notifier).toggleEaten(entry),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.manualEntry ?? 'Meal',
+                    style: TextStyle(
+                      color: entry.isEaten ? AppColors.olive : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      decoration:
+                      entry.isEaten ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  if (entry.calories != null && entry.calories! > 0)
+                    Text('${entry.calories!.toInt()} kcal',
+                        style: AppTextStyles.caption),
+                ],
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white24),
-            onPressed: () => ref.read(routineProvider.notifier).removeEntry(entry),
-          ),
-        ],
+            const Icon(Icons.drag_handle, color: Colors.white24, size: 16),
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  size: 18, color: Colors.white24),
+              onPressed: () =>
+                  ref.read(routineProvider.notifier).removeEntry(entry),
+            ),
+          ],
+        ),
       ),
     );
   }

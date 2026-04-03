@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-
-  static const Color background = Color(0xFF120E16); 
-  static const Color card       = Color(0xFF1E1625); 
-  static const Color primary    = Color(0xFF2D1B36); 
+  // Dark purple theme
+  static const Color background = Color(0xFF0D0B14);
+  static const Color card       = Color(0xFF1A1528);
+  static const Color primary    = Color(0xFF221A33);
 
   static const Color olive      = Color(0xFF808000);
-  static const Color accent     = olive; 
-  static const Color beige      = Color(0xFFF5F5DC); 
-  
+  static const Color accent     = olive;
+  static const Color beige      = Color(0xFFF5F5DC);
+
   static const Color dark       = background;
   static const Color text       = beige;
   static const Color secondary  = olive;
-  
+
   static const Color textLight  = Color(0xFFD2D2A0);
-  static const Color warning    = Color(0xFFE9C46A); 
+  static const Color warning    = Color(0xFFE9C46A);
   static const Color danger     = Color(0xFFCF6679);
   static const Color success    = olive;
 }

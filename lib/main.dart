@@ -55,7 +55,8 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> with SingleTickerProviderStateMixin {
+class _MainShellState extends ConsumerState<MainShell>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isOpen = false;
 
@@ -71,8 +72,10 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
   void _toggleMenu() {
     setState(() {
       _isOpen = !_isOpen;
-      if (_isOpen) _controller.forward();
-      else _controller.reverse();
+      if (_isOpen)
+        _controller.forward();
+      else
+        _controller.reverse();
     });
   }
 
@@ -80,7 +83,8 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
     ref.read(foodLogProvider.notifier).loadLogs(DateTime.now());
     ref.read(healthProvider.notifier).loadData();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Data refreshed'), duration: Duration(seconds: 1)),
+      const SnackBar(
+          content: Text('Data refreshed'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -94,13 +98,14 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
 
-    final List<Widget> _screens = [
+    // Screens: 0=Home, 1=Routine, 2=Recipes, 3=Stats, 4=Shopping, 5=Pantry
+    final List<Widget> screens = [
       const HomeScreen(),
       const RoutineScreen(),
-      const ShoppingListScreen(), 
+      const RecipeScreen(),
       const StatsScreen(),
-      const RecipeScreen(), 
-      const PantryScreen(), 
+      const ShoppingListScreen(),
+      const PantryScreen(),
     ];
 
     return Scaffold(
@@ -112,18 +117,21 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
             child: Image.asset(
               'assets/logo-removebg.png',
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => 
-                  const Icon(Icons.restaurant_menu, color: AppColors.olive),
+              errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.restaurant_menu, color: AppColors.olive),
             ),
           ),
         ),
-        title: const Text('Kolirus', 
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        title: const Text('KOLIRUS',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.beige),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SettingsScreen()));
             },
           ),
         ],
@@ -132,7 +140,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
         children: [
           IndexedStack(
             index: currentIndex > 5 ? 0 : currentIndex,
-            children: _screens,
+            children: screens,
           ),
           if (_isOpen)
             GestureDetector(
@@ -154,7 +162,7 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
             _navItem(Icons.home_rounded, 0, currentIndex),
             _navItem(Icons.calendar_month_rounded, 1, currentIndex),
             const SizedBox(width: 48), // Space for FAB
-            _navItem(Icons.shopping_basket_outlined, 2, currentIndex), 
+            _navItem(Icons.menu_book_rounded, 2, currentIndex), // Recipes (swapped)
             _navItem(Icons.bar_chart_rounded, 3, currentIndex),
           ],
         ),
@@ -174,7 +182,8 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
 
   Widget _navItem(IconData icon, int index, int current) {
     return IconButton(
-      icon: Icon(icon, color: index == current ? AppColors.olive : AppColors.textLight),
+      icon: Icon(icon,
+          color: index == current ? AppColors.olive : AppColors.textLight),
       onPressed: () {
         if (_isOpen) _toggleMenu();
         ref.read(navigationProvider.notifier).state = index;
@@ -194,10 +203,13 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
           children: [
             _circularButton(Icons.qr_code_scanner, "Scan", () {
               _toggleMenu();
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ScannerScreen()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ScannerScreen()));
             }),
             const SizedBox(width: 25),
-            _circularButton(Icons.menu_book_rounded, "Recipes", () { 
+            _circularButton(Icons.shopping_basket_outlined, "Groceries", () {
               _toggleMenu();
               ref.read(navigationProvider.notifier).state = 4;
             }),
@@ -224,7 +236,8 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
           child: Icon(icon, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 10)),
+        Text(label,
+            style: const TextStyle(color: AppColors.beige, fontSize: 10)),
       ],
     );
   }
