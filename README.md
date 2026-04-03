@@ -1,6 +1,6 @@
 <div align="center">
 
-
+<img src="assets/logo.png" alt="Kolirus — Mediterranean ancestral eating" width="100%">
 
 # Kolirus
 
