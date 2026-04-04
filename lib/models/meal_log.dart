@@ -17,6 +17,15 @@ class MealLog {
   final double cholesterol;
   final double fiber;
   final double sugar;
+  
+  // New nutrients
+  final double potassium;
+  final double magnesium;
+  final double vitaminC;
+  final double vitaminD;
+  final double calcium;
+  final double iron;
+  final double? price;
 
   MealLog({
     this.id,
@@ -34,6 +43,13 @@ class MealLog {
     this.cholesterol = 0,
     this.fiber = 0,
     this.sugar = 0,
+    this.potassium = 0,
+    this.magnesium = 0,
+    this.vitaminC = 0,
+    this.vitaminD = 0,
+    this.calcium = 0,
+    this.iron = 0,
+    this.price,
   });
 
   Map<String, dynamic> toMap() {
@@ -53,6 +69,13 @@ class MealLog {
       'cholesterol': cholesterol,
       'fiber': fiber,
       'sugar': sugar,
+      'potassium': potassium,
+      'magnesium': magnesium,
+      'vitaminC': vitaminC,
+      'vitaminD': vitaminD,
+      'calcium': calcium,
+      'iron': iron,
+      'price': price,
     };
   }
 
@@ -73,6 +96,13 @@ class MealLog {
       cholesterol: map['cholesterol']?.toDouble() ?? 0.0,
       fiber: map['fiber']?.toDouble() ?? 0.0,
       sugar: map['sugar']?.toDouble() ?? 0.0,
+      potassium: map['potassium']?.toDouble() ?? 0.0,
+      magnesium: map['magnesium']?.toDouble() ?? 0.0,
+      vitaminC: map['vitaminC']?.toDouble() ?? 0.0,
+      vitaminD: map['vitaminD']?.toDouble() ?? 0.0,
+      calcium: map['calcium']?.toDouble() ?? 0.0,
+      iron: map['iron']?.toDouble() ?? 0.0,
+      price: map['price']?.toDouble(),
     );
   }
 }

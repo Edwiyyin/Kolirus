@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Dark purple theme
   static const Color background = Color(0xFF0D0B14);
   static const Color card       = Color(0xFF1A1528);
   static const Color primary    = Color(0xFF221A33);
@@ -33,4 +32,15 @@ class AppTextStyles {
   static const TextStyle caption = TextStyle(
     fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textLight,
   );
+}
+
+extension StringExtension on String {
+  String toTitleCase() {
+    if (isEmpty) return this;
+    return split(' ')
+        .map((str) => str.isNotEmpty 
+            ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}' 
+            : '')
+        .join(' ');
+  }
 }

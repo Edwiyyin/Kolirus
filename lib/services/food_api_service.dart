@@ -32,6 +32,13 @@ class FoodApiService {
             cholesterol: _toDouble(nutriments['cholesterol_100g']),
             fiber: _toDouble(nutriments['fiber_100g']),
             sugar: _toDouble(nutriments['sugars_100g']),
+            // Extended nutrients
+            potassium: _toDouble(nutriments['potassium_100g']) * 1000, // convert to mg
+            magnesium: _toDouble(nutriments['magnesium_100g']) * 1000, // convert to mg
+            vitaminC: _toDouble(nutriments['vitamin-c_100g']) * 1000, // convert to mg
+            vitaminD: _toDouble(nutriments['vitamin-d_100g']) * 1000000, // convert to µg
+            calcium: _toDouble(nutriments['calcium_100g']) * 1000, // convert to mg
+            iron: _toDouble(nutriments['iron_100g']) * 1000, // convert to mg
           );
         }
       }

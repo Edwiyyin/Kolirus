@@ -6,7 +6,10 @@ import '../utils/constants.dart';
 import '../providers/food_log_provider.dart';
 import '../models/meal_log.dart';
 import '../models/food_item.dart';
+import '../models/recipe.dart';
 import '../providers/pantry_provider.dart';
+import '../providers/settings_provider.dart';
+import '../screens/recipe_screen.dart'; 
 import '../models/meal_type.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -16,8 +19,13 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final totals = ref.watch(foodLogProvider.notifier).getDailyTotals();
     final logs = ref.watch(foodLogProvider);
+    final settings = ref.watch(settingsProvider);
+    final userName = settings['name'] ?? 'User';
     final calories = totals['calories'] ?? 0;
     const double goal = 2000;
+
+    final pantry = ref.watch(pantryProvider);
+    final recipes = ref.watch(recipeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -28,12 +36,12 @@ class HomeScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('hello,',
-                      style: TextStyle(color: AppColors.textLight, fontSize: 16)),
-                  Text('ready to fuel?', style: AppTextStyles.heading1),
+                  Text('Hello ${userName.toString().toTitleCase()},',
+                      style: const TextStyle(color: AppColors.textLight, fontSize: 16)),
+                  const Text('Ready To Fuel?', style: AppTextStyles.heading1),
                 ],
               ),
               ElevatedButton.icon(
@@ -52,7 +60,6 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
 
-          // Main Calorie Ring
           Center(
             child: Stack(
               alignment: Alignment.center,
@@ -76,12 +83,12 @@ class HomeScreen extends ConsumerWidget {
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
                             color: AppColors.beige)),
-                    const Text('kcal',
+                    const Text('Kcal',
                         style: TextStyle(
                             color: AppColors.olive,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('of ${goal.toInt()}', style: AppTextStyles.caption),
+                    Text('Of ${goal.toInt()}', style: AppTextStyles.caption),
                   ],
                 ),
               ],
@@ -89,36 +96,41 @@ class HomeScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 48),
-          const Text('quick macros', style: AppTextStyles.heading2),
+          const Text('Recommended Recipes', style: AppTextStyles.heading2),
+          const SizedBox(height: 12),
+          _RecommendedRecipes(pantry: pantry, recipes: recipes),
+
+          const SizedBox(height: 32),
+          const Text('Quick Macros', style: AppTextStyles.heading2),
           const SizedBox(height: 16),
 
           Row(
             children: [
               _MacroMiniCard(
-                  label: 'protein',
+                  label: 'Protein',
                   value: '${totals['protein']?.toInt() ?? 0}g',
                   color: AppColors.olive),
               const SizedBox(width: 12),
               _MacroMiniCard(
-                  label: 'carbs',
+                  label: 'Carbs',
                   value: '${totals['carbs']?.toInt() ?? 0}g',
                   color: AppColors.olive.withOpacity(0.6)),
               const SizedBox(width: 12),
               _MacroMiniCard(
-                  label: 'fat',
+                  label: 'Fat',
                   value: '${totals['fat']?.toInt() ?? 0}g',
                   color: AppColors.olive.withOpacity(0.3)),
             ],
           ),
 
           const SizedBox(height: 32),
-          const Text("today's logs", style: AppTextStyles.heading2),
+          const Text("Today's Logs", style: AppTextStyles.heading2),
           const SizedBox(height: 16),
           if (logs.isEmpty)
             const Center(
                 child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: Text('No meals logged today',
+                    child: Text('No Meals Logged Today',
                         style: TextStyle(color: Colors.white24))))
           else
             ListView.builder(
@@ -149,6 +161,72 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+class _RecommendedRecipes extends StatelessWidget {
+  final List<FoodItem> pantry;
+  final List<Recipe> recipes;
+
+  const _RecommendedRecipes({required this.pantry, required this.recipes});
+
+  @override
+  Widget build(BuildContext context) {
+    if (recipes.isEmpty) {
+      return const Text('Add some recipes to get recommendations!', style: TextStyle(color: Colors.white38));
+    }
+
+    final recommended = recipes.map((recipe) {
+      int matches = 0;
+      for (var ing in recipe.ingredients) {
+        if (pantry.any((p) => p.name.toLowerCase().contains(ing.name.toLowerCase()))) {
+          matches++;
+        }
+      }
+      return {'recipe': recipe, 'matches': matches};
+    }).toList();
+
+    recommended.sort((a, b) => (b['matches'] as int).compareTo(a['matches'] as int));
+
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: recommended.length.clamp(0, 5),
+        itemBuilder: (context, index) {
+          final recipe = recommended[index]['recipe'] as Recipe;
+          final matches = recommended[index]['matches'] as int;
+          return Container(
+            width: 200,
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: matches > 0 ? AppColors.olive.withOpacity(0.3) : Colors.transparent),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(recipe.name.toTitleCase(), 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const Spacer(),
+                Row(
+                  children: [
+                    Icon(Icons.kitchen, size: 12, color: matches > 0 ? AppColors.olive : Colors.white24),
+                    const SizedBox(width: 4),
+                    Text('$matches/${recipe.ingredients.length} Items', 
+                      style: TextStyle(fontSize: 10, color: matches > 0 ? AppColors.olive : Colors.white24)),
+                  ],
+                ),
+                Text(recipe.category.toTitleCase(), style: AppTextStyles.caption),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _LogMealSheet extends ConsumerStatefulWidget {
   @override
   ConsumerState<_LogMealSheet> createState() => _LogMealSheetState();
@@ -161,7 +239,7 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -173,6 +251,7 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
   @override
   Widget build(BuildContext context) {
     final pantry = ref.watch(pantryProvider);
+    final recipes = ref.watch(recipeProvider);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -185,7 +264,7 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Row(
               children: [
-                const Text('Log a Meal', style: AppTextStyles.heading1),
+                const Text('Log A Meal', style: AppTextStyles.heading1),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
@@ -201,7 +280,8 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
             unselectedLabelColor: Colors.white38,
             tabs: const [
               Tab(text: 'From Kitchen'),
-              Tab(text: 'Manual Entry'),
+              Tab(text: 'From Recipes'),
+              Tab(text: 'Manual'),
             ],
           ),
           Expanded(
@@ -211,14 +291,111 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
                 // Tab 1: From Kitchen
                 pantry.isEmpty
                     ? const Center(
-                    child: Text('Kitchen is empty. Scan items first!',
+                    child: Text('Kitchen Is Empty. Scan Items First!',
                         style: TextStyle(color: Colors.white38)))
                     : _KitchenMealPicker(pantry: pantry),
 
-                // Tab 2: Manual Entry
+                // Tab 2: From Recipes
+                recipes.isEmpty
+                    ? const Center(
+                    child: Text('No Recipes Found.',
+                        style: TextStyle(color: Colors.white38)))
+                    : _RecipeMealPicker(recipes: recipes),
+
+                // Tab 3: Manual Entry
                 const _ManualMealEntry(),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeMealPicker extends ConsumerStatefulWidget {
+  final List<Recipe> recipes;
+  const _RecipeMealPicker({required this.recipes});
+
+  @override
+  ConsumerState<_RecipeMealPicker> createState() => _RecipeMealPickerState();
+}
+
+class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
+  Recipe? _selected;
+  MealType _mealType = MealType.Lunch;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          DropdownButtonFormField<Recipe>(
+            value: _selected,
+            hint: const Text('Select a recipe',
+                style: TextStyle(color: Colors.white38)),
+            dropdownColor: AppColors.card,
+            decoration: const InputDecoration(
+                labelText: 'Recipe',
+                labelStyle: TextStyle(color: AppColors.olive)),
+            items: widget.recipes
+                .map((recipe) => DropdownMenuItem(
+              value: recipe,
+              child: Text(recipe.name.toTitleCase(),
+                  style: const TextStyle(color: Colors.white)),
+            ))
+                .toList(),
+            onChanged: (val) => setState(() => _selected = val),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<MealType>(
+            value: _mealType,
+            dropdownColor: AppColors.card,
+            decoration: const InputDecoration(
+                labelText: 'Meal type',
+                labelStyle: TextStyle(color: AppColors.olive)),
+            items: MealType.values
+                .map((t) => DropdownMenuItem(
+                value: t,
+                child: Text(t.name.toTitleCase(),
+                    style: const TextStyle(color: Colors.white))))
+                .toList(),
+            onChanged: (val) => setState(() => _mealType = val!),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.olive,
+                minimumSize: const Size(double.infinity, 50)),
+            onPressed: () {
+              if (_selected != null) {
+                // To log a recipe, we can convert it to a MealLog
+                // A recipe has macros for 1 serving usually
+                final log = MealLog(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  foodItemId: _selected!.id ?? 'recipe',
+                  foodName: _selected!.name,
+                  quantity: 1.0, // Assuming 1 serving
+                  consumedAt: DateTime.now(),
+                  type: _mealType,
+                  calories: _selected!.calories,
+                  protein: _selected!.protein,
+                  carbs: _selected!.carbs,
+                  fat: _selected!.fat,
+                  saturatedFat: _selected!.saturatedFat,
+                  sodium: _selected!.sodium,
+                  cholesterol: _selected!.cholesterol,
+                  fiber: _selected!.fiber,
+                  sugar: _selected!.sugar,
+                );
+                ref.read(foodLogProvider.notifier).addLog(log);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Log Recipe',
+                style: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -247,16 +424,16 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
         children: [
           DropdownButtonFormField<FoodItem>(
             value: _selected,
-            hint: const Text('Select food from kitchen',
+            hint: const Text('Select Food From Kitchen',
                 style: TextStyle(color: Colors.white38)),
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Food item',
+                labelText: 'Food Item',
                 labelStyle: TextStyle(color: AppColors.olive)),
             items: widget.pantry
                 .map((item) => DropdownMenuItem(
               value: item,
-              child: Text(item.name,
+              child: Text(item.name.toTitleCase(),
                   style: const TextStyle(color: Colors.white)),
             ))
                 .toList(),
@@ -267,12 +444,12 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
             value: _mealType,
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Meal type',
+                labelText: 'Meal Type',
                 labelStyle: TextStyle(color: AppColors.olive)),
             items: MealType.values
                 .map((t) => DropdownMenuItem(
                 value: t,
-                child: Text(t.name,
+                child: Text(t.name.toTitleCase(),
                     style: const TextStyle(color: Colors.white))))
                 .toList(),
             onChanged: (val) => setState(() => _mealType = val!),
@@ -282,7 +459,7 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
             controller: _quantityController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Quantity (grams)',
+                labelText: 'Quantity (Grams)',
                 labelStyle: TextStyle(color: AppColors.olive)),
             keyboardType: TextInputType.number,
           ),
@@ -338,7 +515,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _nameController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Meal name *',
+                labelText: 'Meal Name *',
                 labelStyle: TextStyle(color: AppColors.olive)),
           ),
           const SizedBox(height: 8),
@@ -346,12 +523,12 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             value: _mealType,
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Meal type',
+                labelText: 'Meal Type',
                 labelStyle: TextStyle(color: AppColors.olive)),
             items: MealType.values
                 .map((t) => DropdownMenuItem(
                 value: t,
-                child: Text(t.name,
+                child: Text(t.name.toTitleCase(),
                     style: const TextStyle(color: Colors.white))))
                 .toList(),
             onChanged: (val) => setState(() => _mealType = val!),
@@ -361,7 +538,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _calController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Calories (kcal)',
+                labelText: 'Calories (Kcal)',
                 labelStyle: TextStyle(color: AppColors.olive)),
             keyboardType: TextInputType.number,
           ),
@@ -371,7 +548,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _proteinController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Protein (g)',
+                    labelText: 'Protein (G)',
                     labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
@@ -382,7 +559,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _carbsController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Carbs (g)',
+                    labelText: 'Carbs (G)',
                     labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
@@ -394,7 +571,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _fatController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Fat (g)',
+                    labelText: 'Fat (G)',
                     labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
@@ -405,7 +582,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _fiberController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Fiber (g)',
+                    labelText: 'Fiber (G)',
                     labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
@@ -415,7 +592,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _sodiumController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Sodium (mg)',
+                labelText: 'Sodium (Mg)',
                 labelStyle: TextStyle(color: AppColors.olive)),
             keyboardType: TextInputType.number,
           ),
@@ -444,7 +621,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 Navigator.pop(context);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a meal name')),
+                  const SnackBar(content: Text('Please Enter A Meal Name')),
                 );
               }
             },
@@ -499,17 +676,17 @@ class _MealLogTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(log.foodName,
+                  Text(log.foodName.toTitleCase(),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.white)),
                   Text(
-                    '${log.type.name} • ${DateFormat('hh:mm a').format(log.consumedAt)}',
+                    '${log.type.name.toTitleCase()} • ${DateFormat('hh:mm a').format(log.consumedAt)}',
                     style: AppTextStyles.caption,
                   ),
                 ],
               ),
             ),
-            Text('${log.calories.toInt()} kcal',
+            Text('${log.calories.toInt()} Kcal',
                 style: const TextStyle(
                     color: AppColors.olive, fontWeight: FontWeight.bold)),
           ],
@@ -543,7 +720,7 @@ class _MacroMiniCard extends StatelessWidget {
                     fontSize: 18,
                     color: AppColors.beige)),
             const SizedBox(height: 4),
-            Text(label, style: AppTextStyles.caption),
+            Text(label.toTitleCase(), style: AppTextStyles.caption),
           ],
         ),
       ),

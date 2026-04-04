@@ -13,18 +13,25 @@ class ShoppingNotifier extends StateNotifier<List<Map<String, dynamic>>> {
   final _db = DatabaseService.instance;
 
   Future<void> loadItems() async {
-    final items = await _db.getShoppingList();
-    state = items;
+    final res = await _db.query('shopping_list');
+    state = res;
   }
 
-  Future<void> addItem(String name, {String category = 'General'}) async {
+  Future<void> addItem(String name, {String listId = 'default', String? category}) async {
     final item = {
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'name': name,
       'isCompleted': 0,
-      'category': category,
+      'category': category ?? 'General',
+      'quantity': 1.0,
+      'listId': listId,
     };
-    await _db.insertShoppingItem(item);
+    await _db.insert('shopping_list', item);
+    await loadItems();
+  }
+
+  Future<void> updateItem(Map<String, dynamic> item) async {
+    await _db.insert('shopping_list', item);
     await loadItems();
   }
 
@@ -32,12 +39,38 @@ class ShoppingNotifier extends StateNotifier<List<Map<String, dynamic>>> {
     final item = state.firstWhere((element) => element['id'] == id);
     final updated = Map<String, dynamic>.from(item);
     updated['isCompleted'] = isCompleted ? 1 : 0;
-    await _db.insertShoppingItem(updated);
+    await _db.insert('shopping_list', updated);
     await loadItems();
   }
 
   Future<void> removeItem(String id) async {
-    await _db.deleteShoppingItem(id);
+    await _db.delete('shopping_list', where: 'id = ?', whereArgs: [id]);
     await loadItems();
+  }
+}
+
+final shoppingGroupsProvider = StateNotifierProvider<ShoppingGroupsNotifier, List<Map<String, dynamic>>>((ref) {
+  return ShoppingGroupsNotifier();
+});
+
+class ShoppingGroupsNotifier extends StateNotifier<List<Map<String, dynamic>>> {
+  ShoppingGroupsNotifier() : super([]) {
+    loadGroups();
+  }
+  final _db = DatabaseService.instance;
+
+  Future<void> loadGroups() async {
+    final res = await _db.query('shopping_groups');
+    if (res.isEmpty) {
+      await addGroup('Default List');
+    } else {
+      state = res;
+    }
+  }
+
+  Future<void> addGroup(String name) async {
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    await _db.insert('shopping_groups', {'id': id, 'name': name});
+    await loadGroups();
   }
 }

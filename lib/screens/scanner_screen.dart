@@ -36,9 +36,10 @@ class ScannerScreen extends ConsumerStatefulWidget {
 class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   final FoodApiService _apiService = FoodApiService();
   bool _isProcessing = false;
+  bool _showHistory = false;
 
   void _onDetect(BarcodeCapture capture) async {
-    if (_isProcessing) return;
+    if (_isProcessing || _showHistory) return;
 
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
@@ -336,7 +337,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       );
                       ref.read(pantryProvider.notifier).addItem(finalProduct);
                       Navigator.pop(context);
-                      Navigator.pop(context);
+                      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
                     },
                     child: const Text('Add to Kitchen',
                         style: TextStyle(
@@ -402,25 +403,61 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final history = ref.watch(scanHistoryProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Food'),
+        actions: [
+          IconButton(
+            icon: Icon(_showHistory ? Icons.camera_alt : Icons.history),
+            onPressed: () => setState(() => _showHistory = !_showHistory),
+          )
+        ],
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            onDetect: _onDetect,
-          ),
-          Center(
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.olive, width: 4),
-                borderRadius: BorderRadius.circular(20),
+          if (!_showHistory)
+            MobileScanner(
+              onDetect: _onDetect,
+            ),
+          if (!_showHistory)
+            Center(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.olive, width: 4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
             ),
-          ),
+          if (_showHistory)
+            Container(
+              color: AppColors.background,
+              child: history.isEmpty
+                  ? const Center(child: Text('No scan history yet', style: TextStyle(color: Colors.white54)))
+                  : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: history.length,
+                itemBuilder: (context, index) {
+                  final item = history[index];
+                  return Card(
+                    color: AppColors.card,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: item.imageUrl != null
+                          ? Image.network(item.imageUrl!, width: 40, height: 40, fit: BoxFit.cover)
+                          : const Icon(Icons.fastfood, color: AppColors.olive),
+                      title: Text(item.name, style: const TextStyle(color: Colors.white)),
+                      subtitle: Text(item.brand ?? '', style: AppTextStyles.caption),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                      onTap: () => _showProductDialog(item),
+                    ),
+                  );
+                },
+              ),
+            ),
           if (_isProcessing)
             Container(
               color: Colors.black54,

@@ -27,11 +27,11 @@ class PantryScreen extends ConsumerWidget {
             child: Column(
               children: [
                 _StorageSection(
-                  title: 'FREEZER',
-                  icon: Icons.ac_unit,
-                  items: freezerItems,
-                  color: Colors.blueAccent,
-                  location: StorageLocation.freezer,
+                  title: 'SHELF',
+                  icon: Icons.shelves,
+                  items: shelfItems,
+                  color: AppColors.beige,
+                  location: StorageLocation.shelf,
                 ),
                 _StorageSection(
                   title: 'FRIDGE',
@@ -41,11 +41,11 @@ class PantryScreen extends ConsumerWidget {
                   location: StorageLocation.fridge,
                 ),
                 _StorageSection(
-                  title: 'SHELF',
-                  icon: Icons.shelves,
-                  items: shelfItems,
-                  color: AppColors.olive,
-                  location: StorageLocation.shelf,
+                  title: 'FREEZER',
+                  icon: Icons.ac_unit,
+                  items: freezerItems,
+                  color: Colors.blueAccent,
+                  location: StorageLocation.freezer,
                 ),
                 const SizedBox(height: 100),
               ],
@@ -98,6 +98,13 @@ class _StorageSection extends ConsumerWidget {
           cholesterol: item.cholesterol,
           fiber: item.fiber,
           sugar: item.sugar,
+          potassium: item.potassium,
+          magnesium: item.magnesium,
+          vitaminC: item.vitaminC,
+          vitaminD: item.vitaminD,
+          calcium: item.calcium,
+          iron: item.iron,
+          price: item.price,
         );
         ref.read(pantryProvider.notifier).updateItem(updatedItem);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +217,7 @@ class _StorageSection extends ConsumerWidget {
   }
 
   void _showAddDialog(BuildContext context, WidgetRef ref,
-      StorageLocation loc, {FoodItem? editItem}) {
+      StorageLocation initialLoc, {FoodItem? editItem}) {
     final isEditing = editItem != null;
     final nameController =
     TextEditingController(text: editItem?.name ?? '');
@@ -226,7 +233,18 @@ class _StorageSection extends ConsumerWidget {
     TextEditingController(text: editItem?.fiber.toString() ?? '');
     final sodiumController =
     TextEditingController(text: editItem?.sodium.toString() ?? '');
+    final priceController =
+    TextEditingController(text: editItem?.price?.toString() ?? '');
+    
+    // Additional nutrients
+    final potassiumController = TextEditingController(text: editItem?.potassium.toString() ?? '');
+    final magnesiumController = TextEditingController(text: editItem?.magnesium.toString() ?? '');
+    final vitCController = TextEditingController(text: editItem?.vitaminC.toString() ?? '');
+    final vitDController = TextEditingController(text: editItem?.vitaminD.toString() ?? '');
+    final calciumController = TextEditingController(text: editItem?.calcium.toString() ?? '');
+    final ironController = TextEditingController(text: editItem?.iron.toString() ?? '');
 
+    StorageLocation selectedLoc = initialLoc;
     String? localImagePath = editItem?.imageUrl;
 
     showModalBottomSheet(
@@ -249,7 +267,7 @@ class _StorageSection extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(isEditing ? 'Edit Item' : 'Add to ${loc.name}',
+                Text(isEditing ? 'Edit Item' : 'Add Item',
                     style: AppTextStyles.heading2),
                 const SizedBox(height: 16),
                 GestureDetector(
@@ -290,6 +308,22 @@ class _StorageSection extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                DropdownButtonFormField<StorageLocation>(
+                  value: selectedLoc,
+                  dropdownColor: AppColors.card,
+                  decoration: const InputDecoration(
+                    labelText: 'Storage Location',
+                    labelStyle: TextStyle(color: AppColors.olive),
+                  ),
+                  items: StorageLocation.values.map((loc) {
+                    return DropdownMenuItem(
+                      value: loc,
+                      child: Text(loc.name.toUpperCase(), style: const TextStyle(color: Colors.white)),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setModalState(() => selectedLoc = val!),
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: nameController,
                   style: const TextStyle(color: Colors.white),
@@ -366,6 +400,45 @@ class _StorageSection extends ConsumerWidget {
                         )),
                   ],
                 ),
+                TextField(
+                  controller: priceController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: 'price',
+                      labelStyle: TextStyle(color: AppColors.olive),
+                      prefixText: '\$ ',
+                      prefixStyle: TextStyle(color: Colors.white)),
+                  keyboardType: TextInputType.number,
+                ),
+                
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(color: Colors.white10),
+                ),
+                const Text('Additional Nutrients', style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
+                
+                Row(
+                  children: [
+                    Expanded(child: _nutrientField(potassiumController, 'Potassium')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _nutrientField(magnesiumController, 'Magnesium')),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(child: _nutrientField(vitCController, 'Vit C')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _nutrientField(vitDController, 'Vit D')),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(child: _nutrientField(calciumController, 'Calcium')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _nutrientField(ironController, 'Iron')),
+                  ],
+                ),
+
                 const SizedBox(height: 20),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -393,7 +466,7 @@ class _StorageSection extends ConsumerWidget {
                         sodium:
                         double.tryParse(sodiumController.text) ??
                             editItem?.sodium ?? 0,
-                        location: loc,
+                        location: selectedLoc,
                         imageUrl: localImagePath,
                         barcode: editItem?.barcode,
                         brand: editItem?.brand,
@@ -405,6 +478,13 @@ class _StorageSection extends ConsumerWidget {
                         saturatedFat: editItem?.saturatedFat ?? 0,
                         cholesterol: editItem?.cholesterol ?? 0,
                         sugar: editItem?.sugar ?? 0,
+                        potassium: double.tryParse(potassiumController.text) ?? editItem?.potassium ?? 0,
+                        magnesium: double.tryParse(magnesiumController.text) ?? editItem?.magnesium ?? 0,
+                        vitaminC: double.tryParse(vitCController.text) ?? editItem?.vitaminC ?? 0,
+                        vitaminD: double.tryParse(vitDController.text) ?? editItem?.vitaminD ?? 0,
+                        calcium: double.tryParse(calciumController.text) ?? editItem?.calcium ?? 0,
+                        iron: double.tryParse(ironController.text) ?? editItem?.iron ?? 0,
+                        price: double.tryParse(priceController.text),
                       );
                       if (isEditing) {
                         ref
@@ -428,6 +508,17 @@ class _StorageSection extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _nutrientField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white, fontSize: 12),
+      decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white54, fontSize: 10)),
+      keyboardType: TextInputType.number,
+    );
+  }
 }
 
 class _PantryItemTile extends ConsumerWidget {
@@ -442,11 +533,14 @@ class _PantryItemTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bool isExpired = item.expiryDate != null && item.expiryDate!.isBefore(DateTime.now());
+    final int daysLeft = item.expiryDate != null ? item.expiryDate!.difference(DateTime.now()).inDays : -1;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: accentColor.withOpacity(0.2)),
+        border: Border.all(color: isExpired ? Colors.redAccent : accentColor.withOpacity(0.2)),
         boxShadow: isFeedback
             ? [
           const BoxShadow(
@@ -472,7 +566,7 @@ class _PantryItemTile extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        item.name,
+                        item.name.toTitleCase(),
                         style: const TextStyle(
                             color: AppColors.beige,
                             fontSize: 13,
@@ -481,6 +575,15 @@ class _PantryItemTile extends ConsumerWidget {
                       ),
                       Text('${item.calories.toInt()} kcal',
                           style: AppTextStyles.caption),
+                      if (item.expiryDate != null)
+                        Text(
+                          isExpired ? 'Expired' : '$daysLeft days left',
+                          style: TextStyle(
+                            color: isExpired ? Colors.redAccent : AppColors.olive,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
                     ],
                   ),
                 ),

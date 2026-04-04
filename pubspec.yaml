@@ -20,6 +20,8 @@ dependencies:
   image_picker: ^1.1.2
   fl_chart: ^0.68.0
   cupertino_icons: ^1.0.8
+  timezone: ^0.9.4
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
@@ -28,10 +30,9 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
-  android: "ic_launcher"
+  android: true
   ios: false
   image_path: "assets/logo.png"
-  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

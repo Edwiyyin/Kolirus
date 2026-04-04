@@ -19,6 +19,19 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
     state = await _db.getMealLogs(date);
   }
 
+  Future<List<MealLog>> getLogsForRange(DateTime start, DateTime end) async {
+    final startStr = DateTime(start.year, start.month, start.day).toIso8601String();
+    final endStr = DateTime(end.year, end.month, end.day, 23, 59, 59).toIso8601String();
+    
+    final res = await _db.query(
+      'meal_logs',
+      where: 'consumedAt BETWEEN ? AND ?',
+      whereArgs: [startStr, endStr],
+      orderBy: 'consumedAt ASC',
+    );
+    return res.map((json) => MealLog.fromMap(json)).toList();
+  }
+
   Future<void> addLog(MealLog log) async {
     await _db.insertMealLog(log);
     await loadLogs(DateTime.now());
@@ -29,7 +42,6 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
     await loadLogs(DateTime.now());
   }
 
-  /// Used by routine provider to remove a log when unchecking
   Future<void> removeLogByRoutineId(String foodItemId, String foodName) async {
     final toRemove = state.where((l) =>
     l.foodItemId == foodItemId && l.foodName == foodName
@@ -58,13 +70,22 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       cholesterol: item.cholesterol * ratio,
       fiber: item.fiber * ratio,
       sugar: item.sugar * ratio,
+      potassium: (item.potassium) * ratio,
+      magnesium: (item.magnesium) * ratio,
+      vitaminC: (item.vitaminC) * ratio,
+      vitaminD: (item.vitaminD) * ratio,
+      calcium: (item.calcium) * ratio,
+      iron: (item.iron) * ratio,
+      price: (item.price ?? 0) * ratio,
     );
     await addLog(log);
   }
 
   Map<String, double> getDailyTotals() {
     double calories = 0, protein = 0, carbs = 0, fat = 0, sugar = 0,
-        saturatedFat = 0, sodium = 0, cholesterol = 0, fiber = 0;
+        saturatedFat = 0, sodium = 0, cholesterol = 0, fiber = 0,
+        potassium = 0, magnesium = 0, vitaminC = 0, vitaminD = 0,
+        calcium = 0, iron = 0, price = 0;
     for (var log in state) {
       calories += log.calories;
       protein += log.protein;
@@ -75,6 +96,13 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       sodium += log.sodium;
       cholesterol += log.cholesterol;
       fiber += log.fiber;
+      potassium += log.potassium;
+      magnesium += log.magnesium;
+      vitaminC += log.vitaminC;
+      vitaminD += log.vitaminD;
+      calcium += log.calcium;
+      iron += log.iron;
+      price += log.price ?? 0;
     }
     return {
       'calories': calories,
@@ -86,6 +114,13 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
       'sodium': sodium,
       'cholesterol': cholesterol,
       'fiber': fiber,
+      'potassium': potassium,
+      'magnesium': magnesium,
+      'vitaminC': vitaminC,
+      'vitaminD': vitaminD,
+      'calcium': calcium,
+      'iron': iron,
+      'price': price,
     };
   }
 }

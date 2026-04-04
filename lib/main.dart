@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'utils/constants.dart';
 import 'screens/home_screen.dart';
@@ -9,6 +10,9 @@ import 'screens/recipe_screen.dart';
 import 'screens/routine_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/shopping_list_screen.dart';
+import 'screens/receipt_scanner_screen.dart';
+import 'screens/planner_screen.dart';
+import 'screens/addiction_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/navigation_provider.dart';
 import 'providers/food_log_provider.dart';
@@ -17,6 +21,9 @@ import 'providers/health_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
+  
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  
   runApp(const ProviderScope(child: KolirusApp()));
 }
 
@@ -84,7 +91,7 @@ class _MainShellState extends ConsumerState<MainShell>
     ref.read(healthProvider.notifier).loadData();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-          content: Text('Data refreshed'), duration: Duration(seconds: 1)),
+          content: Text('Data Refreshed'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -98,13 +105,19 @@ class _MainShellState extends ConsumerState<MainShell>
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
 
-    // Screens: 0=Home, 1=Routine, 2=Recipes, 3=Stats, 4=Shopping, 5=Pantry
+    // Fixed mapping:
+    // 0: Home
+    // 1: Calendar (Routine)
+    // 2: Recipes
+    // 3: Groceries (Shopping)
+    // 4: Stats
+    // 5: Pantry
     final List<Widget> screens = [
       const HomeScreen(),
       const RoutineScreen(),
       const RecipeScreen(),
-      const StatsScreen(),
       const ShoppingListScreen(),
+      const StatsScreen(),
       const PantryScreen(),
     ];
 
@@ -161,9 +174,9 @@ class _MainShellState extends ConsumerState<MainShell>
           children: <Widget>[
             _navItem(Icons.home_rounded, 0, currentIndex),
             _navItem(Icons.calendar_month_rounded, 1, currentIndex),
-            const SizedBox(width: 48), // Space for FAB
-            _navItem(Icons.menu_book_rounded, 2, currentIndex), // Recipes (swapped)
-            _navItem(Icons.bar_chart_rounded, 3, currentIndex),
+            const SizedBox(width: 48), 
+            _navItem(Icons.menu_book_rounded, 2, currentIndex),
+            _navItem(Icons.shopping_basket_rounded, 3, currentIndex),
           ],
         ),
       ),
@@ -198,26 +211,63 @@ class _MainShellState extends ConsumerState<MainShell>
       right: 0,
       child: ScaleTransition(
         scale: CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _circularButton(Icons.qr_code_scanner, "Scan", () {
-              _toggleMenu();
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ScannerScreen()));
-            }),
-            const SizedBox(width: 25),
-            _circularButton(Icons.shopping_basket_outlined, "Groceries", () {
-              _toggleMenu();
-              ref.read(navigationProvider.notifier).state = 4;
-            }),
-            const SizedBox(width: 25),
+            // Level 1: Kitchen (Top)
             _circularButton(Icons.kitchen_rounded, "Kitchen", () {
               _toggleMenu();
               ref.read(navigationProvider.notifier).state = 5;
             }),
+            const SizedBox(height: 15),
+            // Level 2: Scanners
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _circularButton(Icons.qr_code_scanner, "Scan Food", () {
+                  _toggleMenu();
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ScannerScreen()));
+                }),
+                const SizedBox(width: 30),
+                _circularButton(Icons.receipt_long, "Receipt", () {
+                  _toggleMenu();
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ReceiptScannerScreen()));
+                }),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Level 3: Planning & Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _circularButton(Icons.calendar_today, "Auto Plan", () {
+                  _toggleMenu();
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PlannerScreen()));
+                }),
+                const SizedBox(width: 20),
+                _circularButton(Icons.warning_amber_rounded, "Addiction", () {
+                  _toggleMenu();
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AddictionScreen()));
+                }),
+                const SizedBox(width: 20),
+                _circularButton(Icons.bar_chart_rounded, "Stats", () {
+                  _toggleMenu();
+                  ref.read(navigationProvider.notifier).state = 4;
+                }),
+              ],
+            ),
           ],
         ),
       ),
@@ -236,7 +286,7 @@ class _MainShellState extends ConsumerState<MainShell>
           child: Icon(icon, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        Text(label,
+        Text(label.toTitleCase(),
             style: const TextStyle(color: AppColors.beige, fontSize: 10)),
       ],
     );

@@ -615,10 +615,15 @@ class _RecipeCard extends ConsumerWidget {
                           const Icon(Icons.circle,
                               size: 6, color: AppColors.olive),
                           const SizedBox(width: 12),
-                          Text('${ing.amount} ${ing.unit}',
+                          Text('${ing.amount}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
+                                  color: AppColors.olive)),
+                          const SizedBox(width: 4),
+                          Text(ing.unit,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.beige)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(ing.name,
