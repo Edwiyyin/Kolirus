@@ -48,20 +48,18 @@ class HealthNotifier extends StateNotifier<HealthState> {
     double finalBMI = entry.bodyMass;
     double finalCholesterol = entry.cholesterol;
 
-    if (finalHeight == 0 || finalWeight == 0) {
-      // Iterate through history backwards to find the latest valid data
-      for (var pastEntry in history.reversed) {
-        // Don't carry over from today's own record if it's the one we are trying to fix
-        if (DateUtils.isSameDay(pastEntry.date, normalizedToday)) continue;
+    // Iterate through history backwards to find the latest valid data
+    for (var pastEntry in history.reversed) {
+      // Don't carry over from today's own record if it's the one we are trying to fix
+      if (DateUtils.isSameDay(pastEntry.date, normalizedToday)) continue;
 
-        if (finalHeight == 0 && pastEntry.height > 0) finalHeight = pastEntry.height;
-        if (finalWeight == 0 && pastEntry.weight > 0) finalWeight = pastEntry.weight;
-        if (finalBMI == 0 && pastEntry.bodyMass > 0) finalBMI = pastEntry.bodyMass;
-        if (finalCholesterol == 0 && pastEntry.cholesterol > 0) finalCholesterol = pastEntry.cholesterol;
+      if (finalHeight == 0 && pastEntry.height > 0) finalHeight = pastEntry.height;
+      if (finalWeight == 0 && pastEntry.weight > 0) finalWeight = pastEntry.weight;
+      if (finalBMI == 0 && pastEntry.bodyMass > 0) finalBMI = pastEntry.bodyMass;
+      if (finalCholesterol == 0 && pastEntry.cholesterol > 0) finalCholesterol = pastEntry.cholesterol;
 
-        // Optimization: stop if we have height and weight
-        if (finalHeight > 0 && finalWeight > 0) break;
-      }
+      // Optimization: stop if we have height and weight
+      if (finalHeight > 0 && finalWeight > 0) break;
     }
 
     // Create the "Official" today entry with carried over values
@@ -90,18 +88,27 @@ class HealthNotifier extends StateNotifier<HealthState> {
     
     var existing = await _db.getHealthEntryForDate(normalizedDate);
     
+    // Calculate BMI if height and weight are available
+    double calculatedBMI = bodyMass ?? existing?.bodyMass ?? 0.0;
+    double currentWeight = weight ?? existing?.weight ?? 0.0;
+    double currentHeight = height ?? existing?.height ?? 0.0;
+
+    if (currentWeight > 0 && currentHeight > 0) {
+      calculatedBMI = currentWeight / ((currentHeight / 100) * (currentHeight / 100));
+    }
+
     final updated = HealthEntry(
       id: existing?.id ?? normalizedDate.toIso8601String().split('T')[0],
       date: normalizedDate,
-      weight: weight ?? existing?.weight ?? 0.0,
-      bodyMass: bodyMass ?? existing?.bodyMass ?? 0.0,
-      height: height ?? existing?.height ?? 0.0,
+      weight: currentWeight,
+      bodyMass: calculatedBMI,
+      height: currentHeight,
       cholesterol: cholesterol ?? existing?.cholesterol ?? 0.0,
       steps: existing?.steps ?? 0,
     );
 
     await _db.insertHealthEntry(updated);
-    await loadData(); // This will trigger the carry-over for other fields if needed
+    await loadData();
   }
 
   Future<void> syncWithGoogleFit() async {

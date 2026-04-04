@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_selector_linux/file_selector_linux.dart';
 import '../models/recipe.dart';
+import '../models/food_item.dart';
+import '../providers/pantry_provider.dart';
 import '../services/database_service.dart';
 import '../utils/constants.dart';
 
@@ -35,6 +40,49 @@ class RecipeNotifier extends StateNotifier<List<Recipe>> {
     await db.delete('recipes', where: 'id = ?', whereArgs: [id]);
     await loadRecipes();
   }
+
+  Future<String> exportToJson() async {
+    final recipes = state;
+    final jsonList = recipes.map((r) => r.toMap()).toList();
+    return jsonEncode(jsonList);
+  }
+
+  Future<int> importFromJson(String jsonStr) async {
+    final List<dynamic> list = jsonDecode(jsonStr);
+    int count = 0;
+    for (final item in list) {
+      try {
+        final recipe = Recipe.fromMap(Map<String, dynamic>.from(item));
+        // Give a fresh ID to avoid collisions
+        final newRecipe = Recipe(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + '_$count',
+          name: recipe.name,
+          description: recipe.description,
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          imageUrl: recipe.imageUrl,
+          isCommunityShared: recipe.isCommunityShared,
+          prepTime: recipe.prepTime,
+          cookTime: recipe.cookTime,
+          servings: recipe.servings,
+          category: recipe.category,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          saturatedFat: recipe.saturatedFat,
+          sodium: recipe.sodium,
+          cholesterol: recipe.cholesterol,
+          fiber: recipe.fiber,
+          sugar: recipe.sugar,
+        );
+        await _db.insertRecipe(newRecipe);
+        count++;
+      } catch (_) {}
+    }
+    await loadRecipes();
+    return count;
+  }
 }
 
 class RecipeScreen extends ConsumerStatefulWidget {
@@ -63,23 +111,56 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Column(
               children: [
-                TextField(
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Search recipes...',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    prefixIcon:
-                    const Icon(Icons.search, color: AppColors.olive),
-                    filled: true,
-                    fillColor: AppColors.card,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide.none),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Search recipes...',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          prefixIcon:
+                          const Icon(Icons.search, color: AppColors.olive),
+                          filled: true,
+                          fillColor: AppColors.card,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: AppColors.olive),
+                      color: AppColors.card,
+                      onSelected: (val) {
+                        if (val == 'export') _exportRecipes(context);
+                        if (val == 'import') _importRecipes(context);
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'export',
+                          child: Row(children: [
+                            Icon(Icons.file_upload, color: AppColors.olive, size: 18),
+                            SizedBox(width: 8),
+                            Text('Export JSON', style: TextStyle(color: Colors.white)),
+                          ]),
+                        ),
+                        const PopupMenuItem(
+                          value: 'import',
+                          child: Row(children: [
+                            Icon(Icons.file_download, color: AppColors.olive, size: 18),
+                            SizedBox(width: 8),
+                            Text('Import JSON', style: TextStyle(color: Colors.white)),
+                          ]),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
@@ -120,7 +201,7 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
                 child: Text('No recipes found',
                     style: TextStyle(color: Colors.white38)))
                 : GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
               gridDelegate:
               const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -149,6 +230,122 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
     );
   }
 
+  Future<void> _exportRecipes(BuildContext context) async {
+    try {
+      final jsonStr = await ref.read(recipeProvider.notifier).exportToJson();
+      final outputPath = '/storage/emulated/0/Download/kolirus_recipes.json';
+
+      // Try to save to a known location
+      try {
+        final file = File(outputPath);
+        await file.writeAsString(jsonStr);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Exported to Downloads/kolirus_recipes.json')),
+          );
+        }
+        return;
+      } catch (_) {}
+
+      // Fallback: show the JSON in a dialog to copy
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.card,
+            title: const Text('Export Recipes JSON', style: TextStyle(color: AppColors.beige)),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  jsonStr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importRecipes(BuildContext context) async {
+    // Show a dialog to paste JSON
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Import Recipes JSON', style: TextStyle(color: AppColors.beige)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Paste your exported JSON below:',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                maxLines: 8,
+                style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'monospace'),
+                decoration: InputDecoration(
+                  hintText: '[{"name": "My Recipe", ...}]',
+                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+            onPressed: () async {
+              if (controller.text.isNotEmpty) {
+                Navigator.pop(context);
+                try {
+                  final count = await ref.read(recipeProvider.notifier).importFromJson(controller.text);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Imported $count recipe(s) successfully!')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Import failed: Invalid JSON format')),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Import', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showRecipeEditor(BuildContext context, WidgetRef ref,
       {Recipe? recipe}) {
     final isEditing = recipe != null;
@@ -167,14 +364,14 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
     TextEditingController(text: recipe?.carbs.toStringAsFixed(0) ?? '');
     final fatController =
     TextEditingController(text: recipe?.fat.toStringAsFixed(0) ?? '');
-    final ingredientsController = TextEditingController(
-        text: recipe?.ingredients
-            .map((i) => '${i.amount} ${i.unit} ${i.name}')
-            .join('\n') ??
-            '');
     final instructionsController = TextEditingController(
         text: recipe?.instructions.join('\n') ?? '');
     String selectedCat = recipe?.category ?? 'Lunch';
+
+    // Mutable ingredient list
+    List<RecipeIngredient> ingredients = recipe != null
+        ? List<RecipeIngredient>.from(recipe.ingredients)
+        : [];
 
     showModalBottomSheet(
       context: context,
@@ -319,18 +516,70 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
                     ),
                   ),
                 ]),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ingredientsController,
-                  maxLines: 4,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Ingredients (e.g. 200 g Flour)',
-                    labelStyle: TextStyle(color: AppColors.olive),
-                    hintText: 'One per line',
-                    hintStyle: TextStyle(color: Colors.white24),
-                  ),
+                const SizedBox(height: 16),
+
+                // ── Ingredients section ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Ingredients',
+                        style: TextStyle(
+                            color: AppColors.olive,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.kitchen, color: AppColors.olive, size: 16),
+                          label: const Text('From Pantry',
+                              style: TextStyle(color: AppColors.olive, fontSize: 12)),
+                          onPressed: () => _showPantryIngredientPicker(
+                              context, ref, ingredients, setModalState),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.add, color: AppColors.olive, size: 16),
+                          label: const Text('Manual',
+                              style: TextStyle(color: AppColors.olive, fontSize: 12)),
+                          onPressed: () => _showManualIngredientDialog(
+                              context, ingredients, setModalState),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+                if (ingredients.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No ingredients yet — add from pantry or manually',
+                        style: TextStyle(color: Colors.white24, fontSize: 12)),
+                  )
+                else
+                  ...ingredients.asMap().entries.map((e) => Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 6, color: AppColors.olive),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${e.value.amount} ${e.value.unit}  ${e.value.name}'.trim(),
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.close, size: 16, color: Colors.white38),
+                          onPressed: () => setModalState(() => ingredients.removeAt(e.key)),
+                        ),
+                      ],
+                    ),
+                  )),
                 const SizedBox(height: 12),
                 TextField(
                   controller: instructionsController,
@@ -350,27 +599,11 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
                       minimumSize: const Size(double.infinity, 50)),
                   onPressed: () {
                     if (nameController.text.isNotEmpty) {
-                      final ings = ingredientsController.text
-                          .split('\n')
-                          .where((s) => s.trim().isNotEmpty)
-                          .map((s) {
-                        final parts = s.split(' ');
-                        if (parts.length >= 3) {
-                          return RecipeIngredient(
-                              amount: parts[0],
-                              unit: parts[1],
-                              name: parts.sublist(2).join(' '));
-                        }
-                        return RecipeIngredient(
-                            amount: '', unit: '', name: s);
-                      }).toList();
-
                       final insts = instructionsController.text
                           .split('\n')
                           .where((s) => s.trim().isNotEmpty)
                           .toList();
 
-                      // Always generate a fresh ID for new recipes
                       final recipeId = isEditing
                           ? recipe.id!
                           : DateTime.now().millisecondsSinceEpoch.toString();
@@ -383,7 +616,7 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
                         int.tryParse(servingsController.text) ?? 1,
                         prepTime: int.tryParse(prepController.text) ?? 0,
                         cookTime: int.tryParse(cookController.text) ?? 0,
-                        ingredients: ings,
+                        ingredients: ingredients,
                         instructions: insts,
                         imageUrl: recipe?.imageUrl,
                         calories:
@@ -420,6 +653,227 @@ class _RecipeScreenState extends ConsumerState<RecipeScreen> {
       ),
     );
   }
+
+  void _showPantryIngredientPicker(BuildContext context, WidgetRef ref,
+      List<RecipeIngredient> ingredients, StateSetter setModalState) {
+    final pantry = ref.read(pantryProvider);
+
+    if (pantry.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your pantry is empty. Add items first!')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setPickerState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (ctx, scrollCtrl) => Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Text('Pick From Pantry', style: AppTextStyles.heading2),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollCtrl,
+                    itemCount: pantry.length,
+                    itemBuilder: (ctx, i) {
+                      final item = pantry[i];
+                      final alreadyAdded = ingredients.any(
+                              (ing) => ing.name.toLowerCase() == item.name.toLowerCase());
+                      return ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: item.imageUrl != null
+                              ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: item.imageUrl!.startsWith('http')
+                                ? Image.network(item.imageUrl!, fit: BoxFit.cover)
+                                : Image.file(File(item.imageUrl!), fit: BoxFit.cover),
+                          )
+                              : const Icon(Icons.fastfood, color: AppColors.olive, size: 18),
+                        ),
+                        title: Text(item.name.toTitleCase(),
+                            style: TextStyle(
+                                color: alreadyAdded ? AppColors.olive : Colors.white,
+                                fontWeight: alreadyAdded ? FontWeight.bold : FontWeight.normal)),
+                        subtitle: Text('${item.calories.toInt()} kcal / 100g',
+                            style: AppTextStyles.caption),
+                        trailing: alreadyAdded
+                            ? const Icon(Icons.check_circle, color: AppColors.olive, size: 20)
+                            : const Icon(Icons.add_circle_outline, color: Colors.white38, size: 20),
+                        onTap: alreadyAdded
+                            ? null
+                            : () {
+                          Navigator.pop(ctx);
+                          _showAmountDialog(context, item, ingredients, setModalState);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAmountDialog(BuildContext context, FoodItem item,
+      List<RecipeIngredient> ingredients, StateSetter setModalState) {
+    final amountCtrl = TextEditingController(text: '100');
+    String selectedUnit = 'g';
+    const units = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'piece', 'slice', 'pinch'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          title: Text('Add ${item.name.toTitleCase()}',
+              style: const TextStyle(color: AppColors.beige, fontSize: 16)),
+          content: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: amountCtrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    labelStyle: TextStyle(color: AppColors.olive),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: selectedUnit,
+                dropdownColor: AppColors.card,
+                items: units.map((u) => DropdownMenuItem(
+                  value: u,
+                  child: Text(u, style: const TextStyle(color: Colors.white)),
+                )).toList(),
+                onChanged: (val) => setDialogState(() => selectedUnit = val!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+              onPressed: () {
+                setModalState(() {
+                  ingredients.add(RecipeIngredient(
+                    name: item.name,
+                    amount: amountCtrl.text.isEmpty ? '100' : amountCtrl.text,
+                    unit: selectedUnit,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Add', style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showManualIngredientDialog(BuildContext context,
+      List<RecipeIngredient> ingredients, StateSetter setModalState) {
+    final nameCtrl = TextEditingController();
+    final amountCtrl = TextEditingController(text: '100');
+    String selectedUnit = 'g';
+    const units = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'piece', 'slice', 'pinch'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          title: const Text('Add Ingredient', style: TextStyle(color: AppColors.beige)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Ingredient name',
+                  labelStyle: TextStyle(color: AppColors.olive),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Amount',
+                        labelStyle: TextStyle(color: AppColors.olive),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: selectedUnit,
+                    dropdownColor: AppColors.card,
+                    items: units.map((u) => DropdownMenuItem(
+                      value: u,
+                      child: Text(u, style: const TextStyle(color: Colors.white)),
+                    )).toList(),
+                    onChanged: (val) => setDialogState(() => selectedUnit = val!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+              onPressed: () {
+                if (nameCtrl.text.isNotEmpty) {
+                  setModalState(() {
+                    ingredients.add(RecipeIngredient(
+                      name: nameCtrl.text,
+                      amount: amountCtrl.text.isEmpty ? '1' : amountCtrl.text,
+                      unit: selectedUnit,
+                    ));
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('Add', style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _RecipeCard extends ConsumerWidget {
@@ -431,7 +885,7 @@ class _RecipeCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => _showRecipeDetails(context, ref, recipe),
-      onLongPress: onEdit, // Long press to edit
+      onLongPress: onEdit,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,

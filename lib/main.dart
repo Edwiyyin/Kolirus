@@ -21,9 +21,9 @@ import 'providers/health_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
-  
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  
+
   runApp(const ProviderScope(child: KolirusApp()));
 }
 
@@ -105,13 +105,6 @@ class _MainShellState extends ConsumerState<MainShell>
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
 
-    // Fixed mapping:
-    // 0: Home
-    // 1: Calendar (Routine)
-    // 2: Recipes
-    // 3: Groceries (Shopping)
-    // 4: Stats
-    // 5: Pantry
     final List<Widget> screens = [
       const HomeScreen(),
       const RoutineScreen(),
@@ -124,14 +117,21 @@ class _MainShellState extends ConsumerState<MainShell>
     return Scaffold(
       appBar: AppBar(
         leading: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(6.0),
           child: GestureDetector(
             onTap: _refreshAll,
-            child: Image.asset(
-              'assets/logo-removebg.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.restaurant_menu, color: AppColors.olive),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF5FC2A0),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Image.asset(
+                'assets/logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.restaurant_menu, color: AppColors.olive),
+              ),
             ),
           ),
         ),
@@ -174,7 +174,7 @@ class _MainShellState extends ConsumerState<MainShell>
           children: <Widget>[
             _navItem(Icons.home_rounded, 0, currentIndex),
             _navItem(Icons.calendar_month_rounded, 1, currentIndex),
-            const SizedBox(width: 48), 
+            const SizedBox(width: 48),
             _navItem(Icons.menu_book_rounded, 2, currentIndex),
             _navItem(Icons.shopping_basket_rounded, 3, currentIndex),
           ],
@@ -214,13 +214,11 @@ class _MainShellState extends ConsumerState<MainShell>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Level 1: Kitchen (Top)
             _circularButton(Icons.kitchen_rounded, "Kitchen", () {
               _toggleMenu();
               ref.read(navigationProvider.notifier).state = 5;
             }),
             const SizedBox(height: 15),
-            // Level 2: Scanners
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -242,7 +240,6 @@ class _MainShellState extends ConsumerState<MainShell>
               ],
             ),
             const SizedBox(height: 15),
-            // Level 3: Planning & Stats
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

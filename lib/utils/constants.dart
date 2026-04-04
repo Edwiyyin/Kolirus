@@ -8,6 +8,7 @@ class AppColors {
   static const Color olive      = Color(0xFF808000);
   static const Color accent     = olive;
   static const Color beige      = Color(0xFFF5F5DC);
+  static const Color freezer    = Color(0xFF5FC2A0);
 
   static const Color dark       = background;
   static const Color text       = beige;
@@ -38,9 +39,9 @@ extension StringExtension on String {
   String toTitleCase() {
     if (isEmpty) return this;
     return split(' ')
-        .map((str) => str.isNotEmpty 
-            ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}' 
-            : '')
+        .map((str) => str.isNotEmpty
+        ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}'
+        : '')
         .join(' ');
   }
 }
