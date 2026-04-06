@@ -43,4 +43,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/logo_github.png
     - assets/logo_foreground.png
