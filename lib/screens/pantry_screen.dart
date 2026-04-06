@@ -33,8 +33,8 @@ class PantryScreen extends ConsumerWidget {
     final pantry = ref.watch(pantryProvider);
 
     final shelfItems   = pantry.where((i) => i.location == StorageLocation.shelf).toList();
-    final fridgeItems  = pantry.where((i) => i.location == StorageLocation.fridge).toList();
     final freezerItems = pantry.where((i) => i.location == StorageLocation.freezer).toList();
+    final fridgeItems  = pantry.where((i) => i.location == StorageLocation.fridge).toList();
 
     final expiringItems = pantry.where((i) {
       if (i.expiryDate == null) return false;
@@ -89,9 +89,9 @@ class PantryScreen extends ConsumerWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                _StorageSection(title: 'SHELF',   icon: Icons.shelves,  items: shelfItems,   color: AppColors.beige,   location: StorageLocation.shelf),
+                _StorageSection(title: 'SHELF',   icon: Icons.shelves,  items: shelfItems,   color: AppColors.olive,   location: StorageLocation.shelf),
+                _StorageSection(title: 'FREEZER', icon: Icons.ac_unit,  items: freezerItems, color: AppColors.olive, location: StorageLocation.freezer),
                 _StorageSection(title: 'FRIDGE',  icon: Icons.kitchen,  items: fridgeItems,  color: AppColors.olive,   location: StorageLocation.fridge),
-                _StorageSection(title: 'FREEZER', icon: Icons.ac_unit,  items: freezerItems, color: AppColors.freezer, location: StorageLocation.freezer),
                 const SizedBox(height: 100),
               ],
             ),
@@ -373,6 +373,26 @@ class _StorageSection extends ConsumerWidget {
                 _row2(_miniField(calciumCtrl, 'Calcium'),      _miniField(ironCtrl,     'Iron')),
                 const SizedBox(height: 20),
 
+                // Delete Button if editing
+                if (isEditing)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () {
+                        ref.read(pantryProvider.notifier).removeItem(editItem.id!);
+                        Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete Item'),
+                    ),
+                  ),
+
                 // save
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -625,7 +645,27 @@ class _PantryItemTile extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
-                onPressed: () => ref.read(pantryProvider.notifier).removeItem(item.id!),
+                onPressed: () {
+                   showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: AppColors.card,
+                      title: const Text('Remove Item?'),
+                      content: Text('Delete ${item.name} from your kitchen?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                          onPressed: () {
+                            ref.read(pantryProvider.notifier).removeItem(item.id!);
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
         ],

@@ -17,7 +17,7 @@ class ShoppingNotifier extends StateNotifier<List<Map<String, dynamic>>> {
     state = res;
   }
 
-  Future<void> addItem(String name, {String listId = 'default', String? category}) async {
+  Future<void> addItem(String name, {required String listId, String? category}) async {
     final item = {
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'name': name,
@@ -47,14 +47,20 @@ class ShoppingNotifier extends StateNotifier<List<Map<String, dynamic>>> {
     await _db.delete('shopping_list', where: 'id = ?', whereArgs: [id]);
     await loadItems();
   }
+
+  Future<void> removeItemsByGroup(String listId) async {
+    await _db.delete('shopping_list', where: 'listId = ?', whereArgs: [listId]);
+    await loadItems();
+  }
 }
 
 final shoppingGroupsProvider = StateNotifierProvider<ShoppingGroupsNotifier, List<Map<String, dynamic>>>((ref) {
-  return ShoppingGroupsNotifier();
+  return ShoppingGroupsNotifier(ref);
 });
 
 class ShoppingGroupsNotifier extends StateNotifier<List<Map<String, dynamic>>> {
-  ShoppingGroupsNotifier() : super([]) {
+  final Ref _ref;
+  ShoppingGroupsNotifier(this._ref) : super([]) {
     loadGroups();
   }
   final _db = DatabaseService.instance;
@@ -71,6 +77,17 @@ class ShoppingGroupsNotifier extends StateNotifier<List<Map<String, dynamic>>> {
   Future<void> addGroup(String name) async {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     await _db.insert('shopping_groups', {'id': id, 'name': name});
+    await loadGroups();
+  }
+
+  Future<void> updateGroup(String id, String name) async {
+    await _db.insert('shopping_groups', {'id': id, 'name': name}); // replace
+    await loadGroups();
+  }
+
+  Future<void> removeGroup(String id) async {
+    await _db.delete('shopping_groups', where: 'id = ?', whereArgs: [id]);
+    await _ref.read(shoppingProvider.notifier).removeItemsByGroup(id);
     await loadGroups();
   }
 }

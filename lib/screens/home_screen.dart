@@ -22,7 +22,7 @@ class HomeScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final userName = settings['name'] ?? 'User';
     final calories = totals['calories'] ?? 0;
-    const double goal = 2000;
+    final double goal = settings['calorie_goal'] ?? 2000.0;
 
     final pantry = ref.watch(pantryProvider);
     final recipes = ref.watch(recipeProvider);
@@ -60,38 +60,41 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
 
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: CircularProgressIndicator(
-                    value: (calories / goal).clamp(0, 1),
-                    strokeWidth: 12,
-                    backgroundColor: AppColors.card,
-                    valueColor:
-                    const AlwaysStoppedAnimation<Color>(AppColors.olive),
+          GestureDetector(
+            onTap: () => _showEditGoalDialog(context, ref, goal),
+            child: Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: CircularProgressIndicator(
+                      value: (calories / goal).clamp(0, 1),
+                      strokeWidth: 12,
+                      backgroundColor: AppColors.card,
+                      valueColor:
+                      const AlwaysStoppedAnimation<Color>(AppColors.olive),
+                    ),
                   ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${calories.toInt()}',
-                        style: const TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.beige)),
-                    const Text('Kcal',
-                        style: TextStyle(
-                            color: AppColors.olive,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text('Of ${goal.toInt()}', style: AppTextStyles.caption),
-                  ],
-                ),
-              ],
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${calories.toInt()}',
+                          style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.beige)),
+                      const Text('Kcal',
+                          style: TextStyle(
+                              color: AppColors.olive,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text('Of ${goal.toInt()}', style: AppTextStyles.caption),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -144,6 +147,33 @@ class HomeScreen extends ConsumerWidget {
             ),
 
           const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  void _showEditGoalDialog(BuildContext context, WidgetRef ref, double currentGoal) {
+    final ctrl = TextEditingController(text: currentGoal.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Daily Calorie Goal'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(suffixText: 'Kcal'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () {
+            final val = double.tryParse(ctrl.text);
+            if (val != null && val > 0) {
+              ref.read(settingsProvider.notifier).updateCalorieGoal(val);
+              Navigator.pop(context);
+            }
+          }, child: const Text('Save')),
         ],
       ),
     );
@@ -228,6 +258,9 @@ class _RecommendedRecipes extends StatelessWidget {
 }
 
 class _LogMealSheet extends ConsumerStatefulWidget {
+  final MealLog? editLog;
+  const _LogMealSheet({this.editLog});
+
   @override
   ConsumerState<_LogMealSheet> createState() => _LogMealSheetState();
 }
@@ -240,6 +273,9 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    if (widget.editLog != null) {
+      _tabController.index = 2; // Default to manual for editing
+    }
   }
 
   @override
@@ -264,7 +300,7 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Row(
               children: [
-                const Text('Log A Meal', style: AppTextStyles.heading1),
+                Text(widget.editLog != null ? 'Edit Meal' : 'Log A Meal', style: AppTextStyles.heading1),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
@@ -273,20 +309,22 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
               ],
             ),
           ),
-          TabBar(
-            controller: _tabController,
-            indicatorColor: AppColors.olive,
-            labelColor: AppColors.olive,
-            unselectedLabelColor: Colors.white38,
-            tabs: const [
-              Tab(text: 'From Kitchen'),
-              Tab(text: 'From Recipes'),
-              Tab(text: 'Manual'),
-            ],
-          ),
+          if (widget.editLog == null)
+            TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.olive,
+              labelColor: AppColors.olive,
+              unselectedLabelColor: Colors.white38,
+              tabs: const [
+                Tab(text: 'From Kitchen'),
+                Tab(text: 'From Recipes'),
+                Tab(text: 'Manual'),
+              ],
+            ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
+              physics: widget.editLog != null ? const NeverScrollableScrollPhysics() : null,
               children: [
                 // Tab 1: From Kitchen
                 pantry.isEmpty
@@ -303,7 +341,7 @@ class _LogMealSheetState extends ConsumerState<_LogMealSheet>
                     : _RecipeMealPicker(recipes: recipes),
 
                 // Tab 3: Manual Entry
-                const _ManualMealEntry(),
+                _ManualMealEntry(editLog: widget.editLog),
               ],
             ),
           ),
@@ -370,13 +408,11 @@ class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
                 minimumSize: const Size(double.infinity, 50)),
             onPressed: () {
               if (_selected != null) {
-                // To log a recipe, we can convert it to a MealLog
-                // A recipe has macros for 1 serving usually
                 final log = MealLog(
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                   foodItemId: _selected!.id ?? 'recipe',
                   foodName: _selected!.name,
-                  quantity: 1.0, // Assuming 1 serving
+                  quantity: 1.0, 
                   consumedAt: DateTime.now(),
                   type: _mealType,
                   calories: _selected!.calories,
@@ -489,21 +525,35 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
 }
 
 class _ManualMealEntry extends ConsumerStatefulWidget {
-  const _ManualMealEntry();
+  final MealLog? editLog;
+  const _ManualMealEntry({this.editLog});
 
   @override
   ConsumerState<_ManualMealEntry> createState() => _ManualMealEntryState();
 }
 
 class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
-  final _nameController = TextEditingController();
-  final _calController = TextEditingController();
-  final _proteinController = TextEditingController();
-  final _carbsController = TextEditingController();
-  final _fatController = TextEditingController();
-  final _fiberController = TextEditingController();
-  final _sodiumController = TextEditingController();
-  MealType _mealType = MealType.Lunch;
+  late TextEditingController _nameController;
+  late TextEditingController _calController;
+  late TextEditingController _proteinController;
+  late TextEditingController _carbsController;
+  late TextEditingController _fatController;
+  late TextEditingController _fiberController;
+  late TextEditingController _sodiumController;
+  late MealType _mealType;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.editLog?.foodName ?? '');
+    _calController = TextEditingController(text: widget.editLog?.calories.toInt().toString() ?? '');
+    _proteinController = TextEditingController(text: widget.editLog?.protein.toString() ?? '');
+    _carbsController = TextEditingController(text: widget.editLog?.carbs.toString() ?? '');
+    _fatController = TextEditingController(text: widget.editLog?.fat.toString() ?? '');
+    _fiberController = TextEditingController(text: widget.editLog?.fiber.toString() ?? '');
+    _sodiumController = TextEditingController(text: widget.editLog?.sodium.toString() ?? '');
+    _mealType = widget.editLog?.type ?? MealType.Lunch;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -604,11 +654,11 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             onPressed: () {
               if (_nameController.text.isNotEmpty) {
                 final log = MealLog(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  foodItemId: 'manual',
+                  id: widget.editLog?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                  foodItemId: widget.editLog?.foodItemId ?? 'manual',
                   foodName: _nameController.text,
-                  quantity: 1.0,
-                  consumedAt: DateTime.now(),
+                  quantity: widget.editLog?.quantity ?? 1.0,
+                  consumedAt: widget.editLog?.consumedAt ?? DateTime.now(),
                   type: _mealType,
                   calories: double.tryParse(_calController.text) ?? 0,
                   protein: double.tryParse(_proteinController.text) ?? 0,
@@ -617,16 +667,16 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                   fiber: double.tryParse(_fiberController.text) ?? 0,
                   sodium: double.tryParse(_sodiumController.text) ?? 0,
                 );
-                ref.read(foodLogProvider.notifier).addLog(log);
+                if (widget.editLog != null) {
+                  ref.read(foodLogProvider.notifier).updateLog(log);
+                } else {
+                  ref.read(foodLogProvider.notifier).addLog(log);
+                }
                 Navigator.pop(context);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please Enter A Meal Name')),
-                );
               }
             },
-            child: const Text('Log Meal',
-                style: TextStyle(
+            child: Text(widget.editLog != null ? 'Update Meal' : 'Log Meal',
+                style: const TextStyle(
                     color: Colors.black, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 20),
@@ -654,44 +704,58 @@ class _MealLogTile extends ConsumerWidget {
       onDismissed: (_) {
         ref.read(foodLogProvider.notifier).removeLog(log.id!);
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                  color: AppColors.olive.withOpacity(0.1),
-                  shape: BoxShape.circle),
-              child: const Icon(Icons.restaurant,
-                  color: AppColors.olive, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(log.foodName.toTitleCase(),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text(
-                    '${log.type.name.toTitleCase()} • ${DateFormat('hh:mm a').format(log.consumedAt)}',
-                    style: AppTextStyles.caption,
-                  ),
-                ],
+      child: GestureDetector(
+        onTap: () => _showEditLogSheet(context, ref, log),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: AppColors.olive.withOpacity(0.1),
+                    shape: BoxShape.circle),
+                child: const Icon(Icons.restaurant,
+                    color: AppColors.olive, size: 20),
               ),
-            ),
-            Text('${log.calories.toInt()} Kcal',
-                style: const TextStyle(
-                    color: AppColors.olive, fontWeight: FontWeight.bold)),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(log.foodName.toTitleCase(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(
+                      '${log.type.name.toTitleCase()} • ${DateFormat('hh:mm a').format(log.consumedAt)}',
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
+              Text('${log.calories.toInt()} Kcal',
+                  style: const TextStyle(
+                      color: AppColors.olive, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  void _showEditLogSheet(BuildContext context, WidgetRef ref, MealLog log) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => _LogMealSheet(editLog: log),
     );
   }
 }

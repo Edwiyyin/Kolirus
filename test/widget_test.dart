@@ -7,7 +7,10 @@ void main() {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const ProviderScope(child: KolirusApp()));
 
-    // Verify that the home screen is displayed.
-    expect(find.text('Home'), findsWidgets);
+    // Verify that the logo/title 'Kolirus' is displayed in the header
+    expect(find.text('Kolirus'), findsOneWidget);
+
+    // Verify that the navigation bar exists
+    expect(find.byIcon(Icons.calendar_month_rounded), findsOneWidget);
   });
 }

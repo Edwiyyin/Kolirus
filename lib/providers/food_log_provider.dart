@@ -37,6 +37,11 @@ class FoodLogNotifier extends StateNotifier<List<MealLog>> {
     await loadLogs(DateTime.now());
   }
 
+  Future<void> updateLog(MealLog log) async {
+    await _db.insertMealLog(log);
+    await loadLogs(DateTime.now());
+  }
+
   Future<void> removeLog(String logId) async {
     await _db.deleteMealLog(logId);
     await loadLogs(DateTime.now());

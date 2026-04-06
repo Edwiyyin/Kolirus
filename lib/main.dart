@@ -66,6 +66,8 @@ class _MainShellState extends ConsumerState<MainShell>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isOpen = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String? _bannerMessage;
 
   @override
   void initState() {
@@ -86,13 +88,17 @@ class _MainShellState extends ConsumerState<MainShell>
     });
   }
 
+  void _showBanner(String msg) {
+    setState(() => _bannerMessage = msg);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _bannerMessage = null);
+    });
+  }
+
   void _refreshAll() {
     ref.read(foodLogProvider.notifier).loadLogs(DateTime.now());
     ref.read(healthProvider.notifier).loadData();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Data Refreshed'), duration: Duration(seconds: 1)),
-    );
+    _showBanner('Data Refreshed');
   }
 
   @override
@@ -107,52 +113,52 @@ class _MainShellState extends ConsumerState<MainShell>
 
     final List<Widget> screens = [
       const HomeScreen(),
-      const RoutineScreen(),
-      const RecipeScreen(),
-      const ShoppingListScreen(),
-      const StatsScreen(),
       const PantryScreen(),
+      const RecipeScreen(),
+      const RoutineScreen(),
     ];
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
+        leadingWidth: 70,
         leading: Padding(
-          padding: const EdgeInsets.all(6.0),
-          child: GestureDetector(
-            onTap: _refreshAll,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF5FC2A0),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(4),
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.restaurant_menu, color: AppColors.olive),
+          padding: const EdgeInsets.only(left: 12.0),
+          child: Center(
+            child: GestureDetector(
+              onTap: _refreshAll,
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.restaurant_menu, color: AppColors.olive, size: 24),
+                ),
               ),
             ),
           ),
         ),
-        title: const Text('KOLIRUS',
+        title: const Text('Kolirus',
             style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.beige),
-            onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SettingsScreen()));
-            },
+            icon: const Icon(Icons.shopping_basket_outlined, color: AppColors.olive),
+            onPressed: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const ShoppingListScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.beige),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
         ],
       ),
+      drawer: _buildDrawer(context),
       body: Stack(
         children: [
           IndexedStack(
-            index: currentIndex > 5 ? 0 : currentIndex,
+            index: currentIndex.clamp(0, 3),
             children: screens,
           ),
           if (_isOpen)
@@ -172,11 +178,11 @@ class _MainShellState extends ConsumerState<MainShell>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            _navItem(Icons.home_rounded, 0, currentIndex),
-            _navItem(Icons.calendar_month_rounded, 1, currentIndex),
+            _navItem(Icons.home_rounded, 'Home', 0, currentIndex),
+            _navItem(Icons.kitchen_rounded, 'Kitchen', 1, currentIndex),
             const SizedBox(width: 48),
-            _navItem(Icons.menu_book_rounded, 2, currentIndex),
-            _navItem(Icons.shopping_basket_rounded, 3, currentIndex),
+            _navItem(Icons.menu_book_rounded, 'Recipes', 2, currentIndex),
+            _navItem(Icons.calendar_month_rounded, 'Calendar', 3, currentIndex),
           ],
         ),
       ),
@@ -193,7 +199,82 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 
-  Widget _navItem(IconData icon, int index, int current) {
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppColors.primary,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.olive,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: Image.asset('assets/logo.png', width: 28, height: 28,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.restaurant_menu, color: Colors.black, size: 28)),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('KOLIRUS',
+                      style: TextStyle(fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5, fontSize: 18, color: AppColors.beige)),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white10),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 6),
+              child: Text('ANALYTICS', style: TextStyle(color: AppColors.olive,
+                  fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ),
+            _drawerItem(context, Icons.bar_chart_rounded, 'Stats', () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen()));
+            }),
+            _drawerItem(context, Icons.warning_amber_rounded, 'Addiction Tracker', () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddictionScreen()));
+            }),
+            const Divider(color: Colors.white10),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 6),
+              child: Text('ACCOUNT', style: TextStyle(color: AppColors.olive,
+                  fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ),
+            _drawerItem(context, Icons.settings_outlined, 'Settings', () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+            }),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Kolirus v1.0.0',
+                  style: TextStyle(color: Colors.white24, fontSize: 11)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.olive, size: 22),
+      title: Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 14)),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+
+  Widget _navItem(IconData icon, String label, int index, int current) {
     return IconButton(
       icon: Icon(icon,
           color: index == current ? AppColors.olive : AppColors.textLight),
@@ -214,11 +295,6 @@ class _MainShellState extends ConsumerState<MainShell>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _circularButton(Icons.kitchen_rounded, "Kitchen", () {
-              _toggleMenu();
-              ref.read(navigationProvider.notifier).state = 5;
-            }),
-            const SizedBox(height: 15),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -236,32 +312,6 @@ class _MainShellState extends ConsumerState<MainShell>
                       context,
                       MaterialPageRoute(
                           builder: (context) => const ReceiptScannerScreen()));
-                }),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _circularButton(Icons.calendar_today, "Auto Plan", () {
-                  _toggleMenu();
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const PlannerScreen()));
-                }),
-                const SizedBox(width: 20),
-                _circularButton(Icons.warning_amber_rounded, "Addiction", () {
-                  _toggleMenu();
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AddictionScreen()));
-                }),
-                const SizedBox(width: 20),
-                _circularButton(Icons.bar_chart_rounded, "Stats", () {
-                  _toggleMenu();
-                  ref.read(navigationProvider.notifier).state = 4;
                 }),
               ],
             ),
@@ -283,7 +333,7 @@ class _MainShellState extends ConsumerState<MainShell>
           child: Icon(icon, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        Text(label.toTitleCase(),
+        Text(label,
             style: const TextStyle(color: AppColors.beige, fontSize: 10)),
       ],
     );

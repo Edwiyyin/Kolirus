@@ -12,6 +12,7 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     'name': 'User',
     'dietary_prefs': <String>[],
     'religious_prefs': <String>[],
+    'calorie_goal': 2000.0,
   }) {
     _loadSettings();
   }
@@ -23,12 +24,14 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     final name = await _db.getSetting('name');
     final dietaryStr = await _db.getSetting('dietary_prefs');
     final religiousStr = await _db.getSetting('religious_prefs');
+    final goalStr = await _db.getSetting('calorie_goal');
 
     Map<String, dynamic> newState = {...state};
     if (allergiesStr != null) newState['allergies'] = List<String>.from(jsonDecode(allergiesStr));
     if (name != null) newState['name'] = name;
     if (dietaryStr != null) newState['dietary_prefs'] = List<String>.from(jsonDecode(dietaryStr));
     if (religiousStr != null) newState['religious_prefs'] = List<String>.from(jsonDecode(religiousStr));
+    if (goalStr != null) newState['calorie_goal'] = double.tryParse(goalStr) ?? 2000.0;
     
     state = newState;
   }
@@ -51,5 +54,10 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
   Future<void> updateReligiousPrefs(List<String> prefs) async {
     state = {...state, 'religious_prefs': prefs};
     await _db.saveSetting('religious_prefs', jsonEncode(prefs));
+  }
+
+  Future<void> updateCalorieGoal(double goal) async {
+    state = {...state, 'calorie_goal': goal};
+    await _db.saveSetting('calorie_goal', goal.toString());
   }
 }

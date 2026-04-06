@@ -6,6 +6,7 @@ import '../models/meal_routine.dart';
 import '../providers/routine_provider.dart';
 import '../models/recipe.dart';
 import '../screens/recipe_screen.dart';
+import '../screens/planner_screen.dart';
 import '../models/meal_type.dart';
 
 class RoutineScreen extends ConsumerStatefulWidget {
@@ -25,8 +26,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _hourScrollController.jumpTo(8 * 60.0);
-      // Center the horizontal list on today
-      _dayScrollController.jumpTo(23 * 65.0); // Rough estimate for today in 60-day list
+      _dayScrollController.jumpTo(23 * 65.0);
     });
   }
 
@@ -34,121 +34,173 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   Widget build(BuildContext context) {
     final routineEntries = ref.watch(routineProvider);
 
-    return Column(
-      children: [
-        // Horizontal Date Selector
-        Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          color: AppColors.primary,
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  controller: _dayScrollController,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 60,
-                  itemBuilder: (context, index) {
-                    // Start from 30 days before today
-                    final date = DateTime.now()
-                        .subtract(const Duration(days: 30))
-                        .add(Duration(days: index));
-                    final isSelected = DateUtils.isSameDay(date, _selectedDate);
-                    final isToday = DateUtils.isSameDay(date, DateTime.now());
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Text(DateFormat('MMMM yyyy').format(_selectedDate),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.auto_awesome, color: AppColors.olive, size: 18),
+            label: const Text('Auto Plan',
+                style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 13)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlannerScreen()),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Horizontal Date Selector
+          Container(
+            height: 100,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            color: AppColors.primary,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _dayScrollController,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 60,
+                    itemBuilder: (context, index) {
+                      final date = DateTime.now()
+                          .subtract(const Duration(days: 30))
+                          .add(Duration(days: index));
+                      final isSelected = DateUtils.isSameDay(date, _selectedDate);
+                      final isToday = DateUtils.isSameDay(date, DateTime.now());
 
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedDate = date);
-                        ref.read(routineProvider.notifier).loadRoutine(date);
-                      },
-                      child: Container(
-                        width: 65,
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.olive : Colors.transparent,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                              color: isToday ? AppColors.olive : Colors.white10,
-                              width: isToday ? 2 : 1),
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedDate = date);
+                          ref.read(routineProvider.notifier).loadRoutine(date);
+                        },
+                        child: Container(
+                          width: 65,
+                          margin: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.olive : Colors.transparent,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                                color: isToday ? AppColors.olive : Colors.white10,
+                                width: isToday ? 2 : 1),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(DateFormat('E').format(date).toTitleCase(),
+                                  style: TextStyle(
+                                      color: isSelected ? Colors.black : Colors.white38,
+                                      fontSize: 12)),
+                              const SizedBox(height: 4),
+                              Text(DateFormat('d').format(date),
+                                  style: TextStyle(
+                                      color: isSelected ? Colors.black : AppColors.beige,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18)),
+                            ],
+                          ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: _showFullCalendar,
+                  child: const Text('View Full Calendar',
+                      style: TextStyle(color: AppColors.olive, fontSize: 10,
+                          decoration: TextDecoration.underline)),
+                ),
+              ],
+            ),
+          ),
+
+          // Hourly Calendar
+          Expanded(
+            child: routineEntries.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+              controller: _hourScrollController,
+              itemCount: 24,
+              itemBuilder: (context, hour) {
+                final timeStr = '${hour.toString().padLeft(2, '0')}:00';
+                final entriesAtHour =
+                routineEntries.where((e) => e.time == timeStr).toList();
+
+                return Container(
+                  constraints: const BoxConstraints(minHeight: 60),
+                  decoration: BoxDecoration(
+                    border: Border(
+                        bottom:
+                        BorderSide(color: AppColors.beige.withOpacity(0.05))),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        alignment: Alignment.center,
+                        child: Text(timeStr, style: AppTextStyles.caption),
+                      ),
+                      Expanded(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(DateFormat('E').format(date).toTitleCase(),
-                                style: TextStyle(
-                                    color: isSelected ? Colors.black : Colors.white38,
-                                    fontSize: 12)),
-                            const SizedBox(height: 4),
-                            Text(DateFormat('d').format(date),
-                                style: TextStyle(
-                                    color: isSelected ? Colors.black : AppColors.beige,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18)),
+                            ...entriesAtHour.map((entry) =>
+                                _RoutineItemTile(entry: entry,
+                                    onEdit: () => _editEntry(entry))),
+                            GestureDetector(
+                              onTap: () => _addMealToTime(hour),
+                              child: Container(
+                                height: entriesAtHour.isEmpty ? 60 : 32,
+                                width: double.infinity,
+                                color: Colors.transparent,
+                                child: Icon(Icons.add,
+                                    color: entriesAtHour.isEmpty
+                                        ? Colors.white10
+                                        : Colors.transparent,
+                                    size: 18),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 4),
-              GestureDetector(
-                onTap: _showFullCalendar,
-                child: const Text('View All Calendar', style: TextStyle(color: AppColors.olive, fontSize: 10, decoration: TextDecoration.underline)),
-              ),
-            ],
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
 
-        // Hourly Calendar
-        Expanded(
-          child: ListView.builder(
-            controller: _hourScrollController,
-            itemCount: 24,
-            itemBuilder: (context, hour) {
-              final timeStr = '${hour.toString().padLeft(2, '0')}:00';
-              final entriesAtHour =
-              routineEntries.where((e) => e.time == timeStr).toList();
-
-              return Container(
-                constraints: const BoxConstraints(minHeight: 80),
-                decoration: BoxDecoration(
-                  border: Border(
-                      bottom:
-                      BorderSide(color: AppColors.beige.withOpacity(0.05))),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      alignment: Alignment.center,
-                      child: Text(timeStr, style: AppTextStyles.caption),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          ...entriesAtHour.map((entry) =>
-                              _RoutineItemTile(entry: entry, onEdit: () => _editEntry(entry))),
-                          GestureDetector(
-                            onTap: () => _addMealToTime(hour),
-                            child: Container(
-                              height: 40,
-                              width: double.infinity,
-                              color: Colors.transparent,
-                              child: const Icon(Icons.add,
-                                  color: Colors.white10, size: 20),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.calendar_today, color: Colors.white24, size: 60),
+          const SizedBox(height: 16),
+          const Text('No meals planned for this day',
+              style: TextStyle(color: Colors.white38, fontSize: 16)),
+          const SizedBox(height: 8),
+          const Text('Tap a time slot or use Auto Plan',
+              style: TextStyle(color: Colors.white24, fontSize: 12)),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+            icon: const Icon(Icons.auto_awesome, color: Colors.black, size: 18),
+            label: const Text('Auto Plan', style: TextStyle(color: Colors.black)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlannerScreen()),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -201,8 +253,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.book, color: AppColors.olive),
-              title: Text('Add From Recipes'.toTitleCase(),
-                  style: const TextStyle(color: AppColors.beige)),
+              title: const Text('Add From Recipes',
+                  style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showRecipePicker(timeStr);
@@ -210,8 +262,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.edit, color: AppColors.olive),
-              title: Text('Manual Entry'.toTitleCase(),
-                  style: const TextStyle(color: AppColors.beige)),
+              title: const Text('Manual Entry',
+                  style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showManualEntryDialog(timeStr);
@@ -303,9 +355,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 TextField(
                   controller: controller,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Meal Name'.toTitleCase(),
-                    labelStyle: const TextStyle(color: AppColors.olive),
+                  decoration: const InputDecoration(
+                    labelText: 'Meal Name',
+                    labelStyle: TextStyle(color: AppColors.olive),
                   ),
                   autofocus: true,
                 ),
@@ -313,9 +365,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 DropdownButtonFormField<MealType>(
                   value: selectedType,
                   dropdownColor: AppColors.card,
-                  decoration: InputDecoration(
-                      labelText: 'Meal Type'.toTitleCase(),
-                      labelStyle: const TextStyle(color: AppColors.olive)),
+                  decoration: const InputDecoration(
+                      labelText: 'Meal Type',
+                      labelStyle: TextStyle(color: AppColors.olive)),
                   items: MealType.values
                       .map((t) => DropdownMenuItem(
                       value: t,
@@ -329,9 +381,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 TextField(
                   controller: calController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Calories (Optional)'.toTitleCase(),
-                    labelStyle: const TextStyle(color: AppColors.olive),
+                  decoration: const InputDecoration(
+                    labelText: 'Calories (optional)',
+                    labelStyle: TextStyle(color: AppColors.olive),
                   ),
                   keyboardType: TextInputType.number,
                 ),
@@ -340,9 +392,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                     child: TextField(
                       controller: proteinController,
                       style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                          labelText: 'Protein (G)'.toTitleCase(),
-                          labelStyle: const TextStyle(color: AppColors.olive)),
+                      decoration: const InputDecoration(
+                          labelText: 'Protein (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -351,9 +403,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                     child: TextField(
                       controller: carbsController,
                       style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                          labelText: 'Carbs (G)'.toTitleCase(),
-                          labelStyle: const TextStyle(color: AppColors.olive)),
+                      decoration: const InputDecoration(
+                          labelText: 'Carbs (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -362,9 +414,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                     child: TextField(
                       controller: fatController,
                       style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                          labelText: 'Fat (G)'.toTitleCase(),
-                          labelStyle: const TextStyle(color: AppColors.olive)),
+                      decoration: const InputDecoration(
+                          labelText: 'Fat (g)',
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -375,7 +427,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'.toTitleCase())),
+                child: const Text('Cancel')),
             ElevatedButton(
               style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
@@ -403,7 +455,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 }
                 Navigator.pop(context);
               },
-              child: Text(isEditing ? 'Update' : 'Save'.toTitleCase(),
+              child: Text(isEditing ? 'Update' : 'Save',
                   style: const TextStyle(color: Colors.black)),
             ),
           ],
@@ -460,7 +512,6 @@ class _RoutineItemTile extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(Icons.drag_handle, color: Colors.white24, size: 16),
             IconButton(
               icon: const Icon(Icons.delete_outline,
                   size: 18, color: Colors.white24),

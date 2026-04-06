@@ -162,7 +162,7 @@ class DatabaseService {
         listId TEXT DEFAULT 'default'
       )
     ''');
-    
+
     await db.execute('CREATE TABLE shopping_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL)');
     await db.execute('CREATE TABLE user_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 
@@ -215,11 +215,27 @@ class DatabaseService {
 
   // Specialized methods
   Future<void> insertFoodItem(FoodItem item) => insert('food_items', item.toMap());
+
   Future<List<FoodItem>> getPantryItems() async {
     final res = await query('food_items');
     return res.map((json) => FoodItem.fromMap(json)).toList();
   }
-  Future<void> deleteFoodItem(String id) => delete('food_items', where: 'id = ?', whereArgs: [id]);
+
+  /// Delete a food item by id, barcode, or name (tries all three)
+  Future<void> deleteFoodItem(String key) async {
+    final db = await database;
+    // Try by primary id first
+    int count = await db.delete('food_items', where: 'id = ?', whereArgs: [key]);
+    // If nothing deleted, try by barcode
+    if (count == 0) {
+      count = await db.delete('food_items', where: 'barcode = ?', whereArgs: [key]);
+    }
+    // If still nothing, try by name
+    if (count == 0) {
+      await db.delete('food_items', where: 'name = ?', whereArgs: [key]);
+    }
+  }
+
   Future<void> insertScanHistory(FoodItem item) => insert('scan_history', item.toMap());
   Future<List<FoodItem>> getScanHistory() async {
     final res = await query('scan_history', orderBy: 'addedDate DESC', limit: 50);
