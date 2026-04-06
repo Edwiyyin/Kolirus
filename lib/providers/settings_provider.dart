@@ -2,17 +2,20 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/database_service.dart';
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, Map<String, dynamic>>((ref) {
+final settingsProvider =
+StateNotifierProvider<SettingsNotifier, Map<String, dynamic>>((ref) {
   return SettingsNotifier();
 });
 
 class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
-  SettingsNotifier() : super({
+  SettingsNotifier()
+      : super({
     'allergies': <String>[],
     'name': 'User',
     'dietary_prefs': <String>[],
     'religious_prefs': <String>[],
     'calorie_goal': 2000.0,
+    'profile_pic': null,
   }) {
     _loadSettings();
   }
@@ -25,14 +28,21 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     final dietaryStr = await _db.getSetting('dietary_prefs');
     final religiousStr = await _db.getSetting('religious_prefs');
     final goalStr = await _db.getSetting('calorie_goal');
+    final profilePic = await _db.getSetting('profile_pic');
 
     Map<String, dynamic> newState = {...state};
-    if (allergiesStr != null) newState['allergies'] = List<String>.from(jsonDecode(allergiesStr));
+    if (allergiesStr != null)
+      newState['allergies'] = List<String>.from(jsonDecode(allergiesStr));
     if (name != null) newState['name'] = name;
-    if (dietaryStr != null) newState['dietary_prefs'] = List<String>.from(jsonDecode(dietaryStr));
-    if (religiousStr != null) newState['religious_prefs'] = List<String>.from(jsonDecode(religiousStr));
-    if (goalStr != null) newState['calorie_goal'] = double.tryParse(goalStr) ?? 2000.0;
-    
+    if (dietaryStr != null)
+      newState['dietary_prefs'] = List<String>.from(jsonDecode(dietaryStr));
+    if (religiousStr != null)
+      newState['religious_prefs'] =
+      List<String>.from(jsonDecode(religiousStr));
+    if (goalStr != null)
+      newState['calorie_goal'] = double.tryParse(goalStr) ?? 2000.0;
+    if (profilePic != null) newState['profile_pic'] = profilePic;
+
     state = newState;
   }
 
@@ -59,5 +69,10 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
   Future<void> updateCalorieGoal(double goal) async {
     state = {...state, 'calorie_goal': goal};
     await _db.saveSetting('calorie_goal', goal.toString());
+  }
+
+  Future<void> updateProfilePic(String path) async {
+    state = {...state, 'profile_pic': path};
+    await _db.saveSetting('profile_pic', path);
   }
 }

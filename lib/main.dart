@@ -69,6 +69,10 @@ class _MainShellState extends ConsumerState<MainShell>
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _bannerMessage;
 
+  // Dev menu tap counter
+  int _logoTapCount = 0;
+  DateTime? _firstTapTime;
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +105,35 @@ class _MainShellState extends ConsumerState<MainShell>
     _showBanner('Data Refreshed');
   }
 
+  // ── Dev menu: 10 taps on logo within 5 seconds ────────────────────────────
+  void _handleLogoTap() {
+    final now = DateTime.now();
+    if (_firstTapTime == null ||
+        now.difference(_firstTapTime!) > const Duration(seconds: 5)) {
+      _firstTapTime = now;
+      _logoTapCount = 1;
+    } else {
+      _logoTapCount++;
+    }
+
+    if (_logoTapCount >= 10) {
+      _logoTapCount = 0;
+      _firstTapTime = null;
+      _showDevMenu();
+    }
+  }
+
+  void _showDevMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => const _DevMenuSheet(),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -126,27 +159,32 @@ class _MainShellState extends ConsumerState<MainShell>
           padding: const EdgeInsets.only(left: 12.0),
           child: Center(
             child: GestureDetector(
-              onTap: _refreshAll,
+              onTap: _handleLogoTap,
+              onLongPress: _refreshAll,
               child: SizedBox(
                 width: 40,
                 height: 40,
                 child: Image.asset(
                   'assets/logo.png',
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.restaurant_menu, color: AppColors.olive, size: 24),
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.restaurant_menu,
+                      color: AppColors.olive,
+                      size: 24),
                 ),
               ),
             ),
           ),
         ),
         title: const Text('Kolirus',
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            style:
+            TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_basket_outlined, color: AppColors.olive),
-            onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const ShoppingListScreen())),
+            icon: const Icon(Icons.shopping_basket_outlined,
+                color: AppColors.olive),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ShoppingListScreen())),
           ),
           IconButton(
             icon: const Icon(Icons.menu, color: AppColors.beige),
@@ -167,6 +205,25 @@ class _MainShellState extends ConsumerState<MainShell>
               child: Container(color: Colors.black87),
             ),
           _buildFabMenu(),
+          // Banner
+          if (_bannerMessage != null)
+            Positioned(
+              top: 12,
+              left: 24,
+              right: 24,
+              child: Material(
+                color: AppColors.olive,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  child: Text(_bannerMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
@@ -182,7 +239,8 @@ class _MainShellState extends ConsumerState<MainShell>
             _navItem(Icons.kitchen_rounded, 'Kitchen', 1, currentIndex),
             const SizedBox(width: 48),
             _navItem(Icons.menu_book_rounded, 'Recipes', 2, currentIndex),
-            _navItem(Icons.calendar_month_rounded, 'Calendar', 3, currentIndex),
+            _navItem(
+                Icons.calendar_month_rounded, 'Calendar', 3, currentIndex),
           ],
         ),
       ),
@@ -216,41 +274,62 @@ class _MainShellState extends ConsumerState<MainShell>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.all(6),
-                    child: Image.asset('assets/logo.png', width: 28, height: 28,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.restaurant_menu, color: Colors.black, size: 28)),
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.restaurant_menu,
+                          color: Colors.black,
+                          size: 28),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Text('KOLIRUS',
-                      style: TextStyle(fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5, fontSize: 18, color: AppColors.beige)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          fontSize: 18,
+                          color: AppColors.beige)),
                 ],
               ),
             ),
             const Divider(color: Colors.white10),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 6),
-              child: Text('ANALYTICS', style: TextStyle(color: AppColors.olive,
-                  fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              child: Text('ANALYTICS',
+                  style: TextStyle(
+                      color: AppColors.olive,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5)),
             ),
             _drawerItem(context, Icons.bar_chart_rounded, 'Stats', () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const StatsScreen()));
             }),
-            _drawerItem(context, Icons.warning_amber_rounded, 'Addiction Tracker', () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddictionScreen()));
-            }),
+            _drawerItem(context, Icons.warning_amber_rounded,
+                'Addiction Tracker', () {
+                  Navigator.pop(context);
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const AddictionScreen()));
+                }),
             const Divider(color: Colors.white10),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 6),
-              child: Text('ACCOUNT', style: TextStyle(color: AppColors.olive,
-                  fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              child: Text('ACCOUNT',
+                  style: TextStyle(
+                      color: AppColors.olive,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5)),
             ),
             _drawerItem(context, Icons.settings_outlined, 'Settings', () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()));
             }),
             const Spacer(),
             const Padding(
@@ -264,13 +343,18 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 
-  Widget _drawerItem(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+  Widget _drawerItem(BuildContext context, IconData icon, String label,
+      VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: AppColors.olive, size: 22),
-      title: Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 14)),
+      title: Text(label,
+          style:
+          const TextStyle(color: AppColors.beige, fontSize: 14)),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      shape:
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 
@@ -311,7 +395,8 @@ class _MainShellState extends ConsumerState<MainShell>
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const ReceiptScannerScreen()));
+                          builder: (context) =>
+                          const ReceiptScannerScreen()));
                 }),
               ],
             ),
@@ -321,7 +406,8 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 
-  Widget _circularButton(IconData icon, String label, VoidCallback onTap) {
+  Widget _circularButton(
+      IconData icon, String label, VoidCallback onTap) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -334,8 +420,238 @@ class _MainShellState extends ConsumerState<MainShell>
         ),
         const SizedBox(height: 4),
         Text(label,
-            style: const TextStyle(color: AppColors.beige, fontSize: 10)),
+            style:
+            const TextStyle(color: AppColors.beige, fontSize: 10)),
       ],
     );
   }
+}
+
+// ── Dev Menu Sheet ─────────────────────────────────────────────────────────────
+
+class _DevMenuSheet extends StatefulWidget {
+  const _DevMenuSheet();
+
+  @override
+  State<_DevMenuSheet> createState() => _DevMenuSheetState();
+}
+
+class _DevMenuSheetState extends State<_DevMenuSheet> {
+  List<String> _log = [];
+  List<dynamic> _pendingNotifs = [];
+
+  void _addLog(String msg) {
+    setState(() => _log.insert(0, '[${_ts()}] $msg'));
+  }
+
+  String _ts() {
+    final n = DateTime.now();
+    return '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}:${n.second.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scroll) => SingleChildScrollView(
+        controller: scroll,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.redAccent),
+                    ),
+                    child: const Text('DEV MENU',
+                        style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            letterSpacing: 1.5)),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text('Kolirus Developer Tools',
+                      style: TextStyle(
+                          color: AppColors.beige,
+                          fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white38),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Notification tests
+              _sectionHeader('Notifications'),
+              _devButton(
+                icon: Icons.notifications_active,
+                label: 'Send Immediate Test Notification',
+                onTap: () async {
+                  await NotificationService().showTestNotification();
+                  _addLog('Immediate notification sent');
+                },
+              ),
+              _devButton(
+                icon: Icons.timer,
+                label: 'Schedule Test Expiry in 5 Seconds',
+                onTap: () async {
+                  await NotificationService()
+                      .scheduleTestExpiryIn5Seconds();
+                  _addLog('Expiry notification scheduled in 5s');
+                },
+              ),
+              _devButton(
+                icon: Icons.list_alt,
+                label: 'Show Pending Notifications',
+                onTap: () async {
+                  final pending = await NotificationService()
+                      .getPendingNotifications();
+                  setState(() => _pendingNotifs = pending);
+                  _addLog(
+                      'Found ${pending.length} pending notification(s)');
+                },
+              ),
+              _devButton(
+                icon: Icons.notifications_off,
+                label: 'Cancel All Notifications',
+                color: Colors.orangeAccent,
+                onTap: () async {
+                  await NotificationService().cancelAll();
+                  setState(() => _pendingNotifs = []);
+                  _addLog('All notifications cancelled');
+                },
+              ),
+
+              if (_pendingNotifs.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('Pending:',
+                    style: TextStyle(
+                        color: AppColors.olive, fontSize: 12)),
+                const SizedBox(height: 4),
+                ..._pendingNotifs.map((n) => Text(
+                  '  #${n.id}: ${n.title}',
+                  style: const TextStyle(
+                      color: Colors.white54, fontSize: 11),
+                )),
+              ],
+
+              const SizedBox(height: 20),
+              _sectionHeader('App Info'),
+              _infoRow('Version', '1.0.0'),
+              _infoRow('Build', 'debug'),
+              _infoRow('Platform',
+                  Theme.of(context).platform.name.toUpperCase()),
+              _infoRow('Time', DateTime.now().toString().split('.')[0]),
+
+              const SizedBox(height: 20),
+              _sectionHeader('Danger Zone'),
+              _devButton(
+                icon: Icons.delete_forever,
+                label: 'Clear Dev Log',
+                color: Colors.redAccent,
+                onTap: () => setState(() => _log.clear()),
+              ),
+
+              // Log
+              if (_log.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _sectionHeader('Log'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _log
+                        .map((l) => Text(l,
+                        style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 11,
+                            fontFamily: 'monospace')))
+                        .toList(),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(title.toUpperCase(),
+        style: const TextStyle(
+            color: AppColors.olive,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5)),
+  );
+
+  Widget _devButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = AppColors.olive,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Text(label,
+                        style:
+                        TextStyle(color: color, fontSize: 13))),
+                Icon(Icons.chevron_right, color: color.withOpacity(0.4),
+                    size: 16),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  Widget _infoRow(String key, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      children: [
+        Text('$key: ',
+            style: const TextStyle(
+                color: Colors.white38, fontSize: 12)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 12)),
+      ],
+    ),
+  );
 }

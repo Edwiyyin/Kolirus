@@ -25,9 +25,22 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _hourScrollController.jumpTo(8 * 60.0);
-      _dayScrollController.jumpTo(23 * 65.0);
+      // Scroll to 8 AM
+      if (_hourScrollController.hasClients) {
+        _hourScrollController.jumpTo(8 * 60.0);
+      }
+      // Scroll day strip to today (index 30 of 60)
+      if (_dayScrollController.hasClients) {
+        _dayScrollController.jumpTo(30 * 77.0);
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _hourScrollController.dispose();
+    _dayScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -37,139 +50,131 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text(DateFormat('MMMM yyyy').format(_selectedDate),
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: GestureDetector(
+          onTap: _showFullCalendar,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                DateFormat('MMMM yyyy').format(_selectedDate),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_drop_down, color: AppColors.olive, size: 20),
+            ],
+          ),
+        ),
         actions: [
           TextButton.icon(
             icon: const Icon(Icons.auto_awesome, color: AppColors.olive, size: 18),
-            label: const Text('Auto Plan',
-                style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 13)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PlannerScreen()),
+            label: const Text(
+              'Auto Plan',
+              style: TextStyle(
+                color: AppColors.olive,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PlannerScreen()),
+              );
+            },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Horizontal Date Selector
-          Container(
-            height: 100,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            color: AppColors.primary,
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    controller: _dayScrollController,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 60,
-                    itemBuilder: (context, index) {
-                      final date = DateTime.now()
-                          .subtract(const Duration(days: 30))
-                          .add(Duration(days: index));
-                      final isSelected = DateUtils.isSameDay(date, _selectedDate);
-                      final isToday = DateUtils.isSameDay(date, DateTime.now());
+          // Horizontal Date Strip
+          _buildDayStrip(),
 
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedDate = date);
-                          ref.read(routineProvider.notifier).loadRoutine(date);
-                        },
-                        child: Container(
-                          width: 65,
-                          margin: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.olive : Colors.transparent,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(
-                                color: isToday ? AppColors.olive : Colors.white10,
-                                width: isToday ? 2 : 1),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(DateFormat('E').format(date).toTitleCase(),
-                                  style: TextStyle(
-                                      color: isSelected ? Colors.black : Colors.white38,
-                                      fontSize: 12)),
-                              const SizedBox(height: 4),
-                              Text(DateFormat('d').format(date),
-                                  style: TextStyle(
-                                      color: isSelected ? Colors.black : AppColors.beige,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 4),
-                GestureDetector(
-                  onTap: _showFullCalendar,
-                  child: const Text('View Full Calendar',
-                      style: TextStyle(color: AppColors.olive, fontSize: 10,
-                          decoration: TextDecoration.underline)),
-                ),
-              ],
-            ),
-          ),
-
-          // Hourly Calendar
+          // Hourly Calendar — always shown
           Expanded(
-            child: routineEntries.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-              controller: _hourScrollController,
-              itemCount: 24,
-              itemBuilder: (context, hour) {
-                final timeStr = '${hour.toString().padLeft(2, '0')}:00';
-                final entriesAtHour =
-                routineEntries.where((e) => e.time == timeStr).toList();
+            child: _buildHourlyView(routineEntries),
+          ),
+        ],
+      ),
+    );
+  }
 
-                return Container(
-                  constraints: const BoxConstraints(minHeight: 60),
-                  decoration: BoxDecoration(
-                    border: Border(
-                        bottom:
-                        BorderSide(color: AppColors.beige.withOpacity(0.05))),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        alignment: Alignment.center,
-                        child: Text(timeStr, style: AppTextStyles.caption),
+  Widget _buildDayStrip() {
+    return Container(
+      height: 90,
+      color: AppColors.primary,
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _dayScrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: 60,
+              itemBuilder: (context, index) {
+                final date = DateTime.now()
+                    .subtract(const Duration(days: 30))
+                    .add(Duration(days: index));
+                final isSelected = DateUtils.isSameDay(date, _selectedDate);
+                final isToday = DateUtils.isSameDay(date, DateTime.now());
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedDate = date);
+                    ref.read(routineProvider.notifier).loadRoutine(date);
+                  },
+                  child: Container(
+                    width: 65,
+                    margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.olive
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isToday && !isSelected
+                            ? AppColors.olive
+                            : Colors.white10,
+                        width: isToday && !isSelected ? 2 : 1,
                       ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            ...entriesAtHour.map((entry) =>
-                                _RoutineItemTile(entry: entry,
-                                    onEdit: () => _editEntry(entry))),
-                            GestureDetector(
-                              onTap: () => _addMealToTime(hour),
-                              child: Container(
-                                height: entriesAtHour.isEmpty ? 60 : 32,
-                                width: double.infinity,
-                                color: Colors.transparent,
-                                child: Icon(Icons.add,
-                                    color: entriesAtHour.isEmpty
-                                        ? Colors.white10
-                                        : Colors.transparent,
-                                    size: 18),
-                              ),
-                            ),
-                          ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          DateFormat('E').format(date).toUpperCase(),
+                          style: TextStyle(
+                            color: isSelected ? Colors.black : Colors.white38,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('d').format(date),
+                          style: TextStyle(
+                            color: isSelected ? Colors.black : AppColors.beige,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
+            ),
+          ),
+          GestureDetector(
+            onTap: _showFullCalendar,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'View Full Calendar',
+                style: TextStyle(
+                  color: AppColors.olive.withOpacity(0.7),
+                  fontSize: 10,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
           ),
         ],
@@ -177,30 +182,71 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.calendar_today, color: Colors.white24, size: 60),
-          const SizedBox(height: 16),
-          const Text('No meals planned for this day',
-              style: TextStyle(color: Colors.white38, fontSize: 16)),
-          const SizedBox(height: 8),
-          const Text('Tap a time slot or use Auto Plan',
-              style: TextStyle(color: Colors.white24, fontSize: 12)),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
-            icon: const Icon(Icons.auto_awesome, color: Colors.black, size: 18),
-            label: const Text('Auto Plan', style: TextStyle(color: Colors.black)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PlannerScreen()),
+  Widget _buildHourlyView(List<MealRoutine> routineEntries) {
+    return ListView.builder(
+      controller: _hourScrollController,
+      itemCount: 24,
+      itemBuilder: (context, hour) {
+        final timeStr = '${hour.toString().padLeft(2, '0')}:00';
+        final entriesAtHour =
+        routineEntries.where((e) => e.time == timeStr).toList();
+
+        return InkWell(
+          onTap: () => _addMealToTime(hour),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 60),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.beige.withOpacity(0.05)),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hour label
+                SizedBox(
+                  width: 60,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      timeStr,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+                // Entries + tap target
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...entriesAtHour.map(
+                            (entry) => _RoutineItemTile(
+                          entry: entry,
+                          onEdit: () => _editEntry(entry),
+                        ),
+                      ),
+                      if (entriesAtHour.isEmpty)
+                        Container(height: 60, color: Colors.transparent),
+                      if (entriesAtHour.isNotEmpty)
+                        Container(
+                          height: 28,
+                          color: Colors.transparent,
+                          child: const Center(
+                            child: Icon(Icons.add, color: Colors.white10, size: 16),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -224,7 +270,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         );
       },
     );
-    if (date != null) {
+    if (date != null && mounted) {
       setState(() => _selectedDate = date);
       ref.read(routineProvider.notifier).loadRoutine(date);
     }
@@ -249,7 +295,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Plan Meal At $timeStr'.toTitleCase(), style: AppTextStyles.heading2),
+            Text(
+              'Plan Meal At $timeStr'.toTitleCase(),
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.book, color: AppColors.olive),
@@ -286,11 +335,14 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       builder: (context) => Column(
         children: [
           Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Select Recipe'.toTitleCase(), style: AppTextStyles.heading2)),
+            padding: const EdgeInsets.all(16),
+            child: Text('Select Recipe'.toTitleCase(), style: AppTextStyles.heading2),
+          ),
           Expanded(
             child: recipes.isEmpty
-                ? const Center(child: Text('No Recipes Found'))
+                ? const Center(
+                child: Text('No Recipes Found',
+                    style: TextStyle(color: Colors.white38)))
                 : ListView.builder(
               itemCount: recipes.length,
               itemBuilder: (context, index) {
@@ -304,7 +356,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       : null,
                   onTap: () {
                     final entry = MealRoutine(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      id: DateTime.now()
+                          .millisecondsSinceEpoch
+                          .toString(),
                       date: _selectedDate,
                       mealType: MealType.Lunch,
                       recipeId: r.id,
@@ -346,8 +400,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.card,
-          title: Text(isEditing ? 'Edit Meal' : 'Meal At $time'.toTitleCase(),
-              style: const TextStyle(color: AppColors.beige)),
+          title: Text(
+            isEditing ? 'Edit Meal' : 'Meal At $time'.toTitleCase(),
+            style: const TextStyle(color: AppColors.beige),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -366,16 +422,17 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   value: selectedType,
                   dropdownColor: AppColors.card,
                   decoration: const InputDecoration(
-                      labelText: 'Meal Type',
-                      labelStyle: TextStyle(color: AppColors.olive)),
+                    labelText: 'Meal Type',
+                    labelStyle: TextStyle(color: AppColors.olive),
+                  ),
                   items: MealType.values
                       .map((t) => DropdownMenuItem(
                       value: t,
                       child: Text(t.name.toTitleCase(),
                           style: const TextStyle(color: Colors.white))))
                       .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => selectedType = v ?? MealType.Lunch),
+                  onChanged: (v) => setDialogState(
+                          () => selectedType = v ?? MealType.Lunch),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -425,9 +482,19 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             ),
           ),
           actions: [
+            if (isEditing)
+              TextButton(
+                onPressed: () {
+                  ref.read(routineProvider.notifier).removeEntry(editEntry);
+                  Navigator.pop(context);
+                },
+                child: const Text('Delete',
+                    style: TextStyle(color: Colors.redAccent)),
+              ),
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               style:
               ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
@@ -455,8 +522,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 }
                 Navigator.pop(context);
               },
-              child: Text(isEditing ? 'Update' : 'Save',
-                  style: const TextStyle(color: Colors.black)),
+              child: Text(
+                isEditing ? 'Update' : 'Save',
+                style: const TextStyle(color: Colors.black),
+              ),
             ),
           ],
         ),
@@ -475,24 +544,31 @@ class _RoutineItemTile extends ConsumerWidget {
     return GestureDetector(
       onLongPress: onEdit,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.fromLTRB(4, 4, 8, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: entry.isEaten
-              ? AppColors.olive.withOpacity(0.1)
+              ? AppColors.olive.withOpacity(0.12)
               : AppColors.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: entry.isEaten ? AppColors.olive : Colors.white10),
+            color: entry.isEaten ? AppColors.olive : Colors.white10,
+          ),
         ),
         child: Row(
           children: [
-            Checkbox(
-              value: entry.isEaten,
-              activeColor: AppColors.olive,
-              onChanged: (_) =>
-                  ref.read(routineProvider.notifier).toggleEaten(entry),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Checkbox(
+                value: entry.isEaten,
+                activeColor: AppColors.olive,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (_) =>
+                    ref.read(routineProvider.notifier).toggleEaten(entry),
+              ),
             ),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,8 +578,10 @@ class _RoutineItemTile extends ConsumerWidget {
                     style: TextStyle(
                       color: entry.isEaten ? AppColors.olive : Colors.white,
                       fontWeight: FontWeight.bold,
-                      decoration:
-                      entry.isEaten ? TextDecoration.lineThrough : null,
+                      fontSize: 13,
+                      decoration: entry.isEaten
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                   if (entry.calories != null && entry.calories! > 0)
@@ -514,7 +592,9 @@ class _RoutineItemTile extends ConsumerWidget {
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline,
-                  size: 18, color: Colors.white24),
+                  size: 16, color: Colors.white24),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
               onPressed: () =>
                   ref.read(routineProvider.notifier).removeEntry(entry),
             ),
