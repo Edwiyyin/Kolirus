@@ -19,9 +19,10 @@ native_hooks/
 .idea/
 *.iml
 
-# Local config (VERY IMPORTANT)
+# Local config
 local.properties
 
-# Keystore (VERY IMPORTANT)
+# Keystore
 *.jks
 *.keystore
+android/key.properties
