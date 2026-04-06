@@ -1,28 +1,65 @@
+gitignore
+# -------------------------------------------------------------------
 # Flutter/Dart
+# -------------------------------------------------------------------
 .dart_tool/
-packages
-pubspec.lock
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+# Do NOT ignore pubspec.lock if you want consistent builds across machines
+# pubspec.lock
 
-# Build outputs
+# -------------------------------------------------------------------
+# Build outputs (Fixes indexing/search issues)
+# -------------------------------------------------------------------
 build/
-android/build/
+bin/
+# Android build artifacts
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/build/
+/android/build/
 
+# -------------------------------------------------------------------
 # Native hooks / build artifacts
+# -------------------------------------------------------------------
 native_hooks/
 
-# Cache files
+# -------------------------------------------------------------------
+# Cache and Temporary files
+# -------------------------------------------------------------------
 *.dill
+*.dill.incremental
+*.precached
+*.snapshot
 *.json
 *.cache
+.fvm/
 
-# IDE
+# -------------------------------------------------------------------
+# IDE & OS Files
+# -------------------------------------------------------------------
 .idea/
 *.iml
+.vscode/
+.history/
+.DS_Store
+*.swp
+desktop.ini
 
-# Local config
+# -------------------------------------------------------------------
+# Local config & Secrets (CRITICAL SECURITY)
+# -------------------------------------------------------------------
 local.properties
+/android/local.properties
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
 
-# Keystore
+# Keystore and Signing (Verified Protected)
 *.jks
 *.keystore
+*.p12
+*.key
 android/key.properties
