@@ -165,7 +165,7 @@ class _MainShellState extends ConsumerState<MainShell>
                 width: 40,
                 height: 40,
                 child: Image.asset(
-                  'assets/logo.png',
+                  'assets/logo_github.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => const Icon(
                       Icons.restaurant_menu,
@@ -270,12 +270,12 @@ class _MainShellState extends ConsumerState<MainShell>
                 children: [
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.olive,
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.all(6),
                     child: Image.asset(
-                      'assets/logo.png',
+                      'assets/logo_github.png',
                       width: 28,
                       height: 28,
                       fit: BoxFit.contain,
