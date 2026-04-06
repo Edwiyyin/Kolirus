@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import '../providers/health_provider.dart';
 import '../providers/settings_provider.dart';
@@ -33,15 +35,14 @@ class SettingsScreen extends ConsumerWidget {
     final userReligious = List<String>.from(settings['religious_prefs'] ?? []);
     final healthState = ref.watch(healthProvider);
     final health = healthState.today;
+    final profilePicPath = settings['profile_pic'] as String?;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile & Settings'),
-      ),
+      appBar: AppBar(title: const Text('Profile & Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Personal Info
+          // ── Personal Info ─────────────────────────────────────────────────
           const _SettingsHeader(title: 'Personal Info'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -52,10 +53,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                const CircleAvatar(
-                  radius: 35,
-                  backgroundColor: AppColors.primary,
-                  child: Icon(Icons.person, size: 35, color: AppColors.olive),
+                // Profile picture
+                _ProfileAvatar(
+                  imagePath: profilePicPath,
+                  onTap: () => _pickProfilePic(context, ref),
                 ),
                 const SizedBox(height: 16),
                 _EditableTextField(
@@ -91,7 +92,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Dietary Preferences
+          // ── Dietary Preferences ───────────────────────────────────────────
           const _SettingsHeader(title: 'Dietary Preferences'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -119,12 +120,20 @@ class SettingsScreen extends ConsumerWidget {
                               color: AppColors.olive, fontSize: 11)),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const Text(
                   'Active labels will warn you when scanning incompatible products.',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 const SizedBox(height: 12),
+                // Warning banner when prefs are active
+                if (userDietary.isNotEmpty)
+                  _ActiveDietBanner(
+                    labels: userDietary,
+                    color: AppColors.olive,
+                    icon: Icons.eco,
+                  ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -134,7 +143,9 @@ class SettingsScreen extends ConsumerWidget {
                       label: Text(pref.toTitleCase(),
                           style: TextStyle(
                               fontSize: 12,
-                              color: isSelected ? Colors.black : Colors.white70,
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.white70,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal)),
@@ -147,19 +158,18 @@ class SettingsScreen extends ConsumerWidget {
                             .updateDietaryPrefs(newList);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(selected
-                              ? '${pref.toTitleCase()} diet enabled'
+                              ? '${pref.toTitleCase()} diet enabled — scanner will warn you'
                               : '${pref.toTitleCase()} diet removed'),
-                          duration: const Duration(seconds: 1),
-                          backgroundColor: selected ? AppColors.olive : Colors.white24,
+                          duration: const Duration(seconds: 2),
+                          backgroundColor:
+                          selected ? AppColors.olive : Colors.white24,
                         ));
                       },
                       selectedColor: AppColors.olive,
                       checkmarkColor: Colors.black,
                       backgroundColor: AppColors.background,
                       side: BorderSide(
-                        color: isSelected
-                            ? AppColors.olive
-                            : Colors.white24,
+                        color: isSelected ? AppColors.olive : Colors.white24,
                       ),
                     );
                   }).toList(),
@@ -168,7 +178,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Religious Diet
+          // ── Religious Diet ────────────────────────────────────────────────
           const _SettingsHeader(title: 'Religious Diet'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -196,12 +206,19 @@ class SettingsScreen extends ConsumerWidget {
                               color: AppColors.olive, fontSize: 11)),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const Text(
                   'Active rules will flag incompatible food during scanning.',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 const SizedBox(height: 12),
+                if (userReligious.isNotEmpty)
+                  _ActiveDietBanner(
+                    labels: userReligious,
+                    color: Colors.deepPurpleAccent,
+                    icon: Icons.star,
+                  ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -211,7 +228,9 @@ class SettingsScreen extends ConsumerWidget {
                       label: Text(pref.toTitleCase(),
                           style: TextStyle(
                               fontSize: 12,
-                              color: isSelected ? Colors.black : Colors.white70,
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.white70,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal)),
@@ -224,9 +243,9 @@ class SettingsScreen extends ConsumerWidget {
                             .updateReligiousPrefs(newList);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(selected
-                              ? '${pref.toTitleCase()} rules enabled'
+                              ? '${pref.toTitleCase()} rules enabled — scanner will warn you'
                               : '${pref.toTitleCase()} rules removed'),
-                          duration: const Duration(seconds: 1),
+                          duration: const Duration(seconds: 2),
                           backgroundColor:
                           selected ? AppColors.olive : Colors.white24,
                         ));
@@ -235,7 +254,8 @@ class SettingsScreen extends ConsumerWidget {
                       checkmarkColor: Colors.black,
                       backgroundColor: AppColors.background,
                       side: BorderSide(
-                        color: isSelected ? AppColors.olive : Colors.white24,
+                        color:
+                        isSelected ? AppColors.olive : Colors.white24,
                       ),
                     );
                   }).toList(),
@@ -244,7 +264,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Allergies
+          // ── Allergies ─────────────────────────────────────────────────────
           const _SettingsHeader(title: 'Allergies'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -258,7 +278,8 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.warning_amber, color: Colors.redAccent, size: 16),
+                    const Icon(Icons.warning_amber,
+                        color: Colors.redAccent, size: 16),
                     const SizedBox(width: 8),
                     const Text('Allergy Filters',
                         style: TextStyle(
@@ -272,12 +293,19 @@ class SettingsScreen extends ConsumerWidget {
                               color: Colors.redAccent, fontSize: 11)),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const Text(
                   'You will be warned when scanning products containing these.',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 const SizedBox(height: 12),
+                if (userAllergies.isNotEmpty)
+                  _ActiveDietBanner(
+                    labels: userAllergies,
+                    color: Colors.redAccent,
+                    icon: Icons.warning_amber,
+                  ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -287,14 +315,18 @@ class SettingsScreen extends ConsumerWidget {
                       label: Text(allergy.toTitleCase(),
                           style: TextStyle(
                               fontSize: 12,
-                              color: isSelected ? Colors.white : Colors.white70,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.white70,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal)),
                       selected: isSelected,
                       onSelected: (selected) {
                         final newList = List<String>.from(userAllergies);
-                        selected ? newList.add(allergy) : newList.remove(allergy);
+                        selected
+                            ? newList.add(allergy)
+                            : newList.remove(allergy);
                         ref
                             .read(settingsProvider.notifier)
                             .updateAllergies(newList);
@@ -303,7 +335,9 @@ class SettingsScreen extends ConsumerWidget {
                       checkmarkColor: Colors.white,
                       backgroundColor: AppColors.background,
                       side: BorderSide(
-                        color: isSelected ? Colors.redAccent : Colors.white24,
+                        color: isSelected
+                            ? Colors.redAccent
+                            : Colors.white24,
                       ),
                     );
                   }).toList(),
@@ -312,7 +346,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Data Management
+          // ── Data Management ───────────────────────────────────────────────
           const _SettingsHeader(title: 'Data Management'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -323,7 +357,8 @@ class SettingsScreen extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.file_upload, color: AppColors.olive),
+                  leading:
+                  const Icon(Icons.file_upload, color: AppColors.olive),
                   title: const Text('Export Data'),
                   subtitle: const Text('Backup your database to a file',
                       style: TextStyle(fontSize: 10, color: Colors.white38)),
@@ -331,7 +366,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(color: Colors.white10, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.file_download, color: AppColors.olive),
+                  leading: const Icon(Icons.file_download,
+                      color: AppColors.olive),
                   title: const Text('Import Data'),
                   subtitle: const Text('Restore from a backup file',
                       style: TextStyle(fontSize: 10, color: Colors.white38)),
@@ -341,7 +377,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Health Data Sync
+          // ── Health Sync ───────────────────────────────────────────────────
           const _SettingsHeader(title: 'Data & Sync'),
           Container(
             decoration: BoxDecoration(
@@ -357,6 +393,53 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickProfilePic(BuildContext context, WidgetRef ref) async {
+    final picker = ImagePicker();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: AppColors.olive),
+            title: const Text('Take Photo',
+                style: TextStyle(color: Colors.white)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final img =
+              await picker.pickImage(source: ImageSource.camera);
+              if (img != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateProfilePic(img.path);
+              }
+            },
+          ),
+          ListTile(
+            leading:
+            const Icon(Icons.photo_library, color: AppColors.olive),
+            title: const Text('Choose from Gallery',
+                style: TextStyle(color: Colors.white)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final img =
+              await picker.pickImage(source: ImageSource.gallery);
+              if (img != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateProfilePic(img.path);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -378,14 +461,15 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _importDatabase(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select a .db file to import.')),
+      const SnackBar(
+          content: Text('Please select a .db file to import.')),
     );
   }
 
   void _showStatDialog(BuildContext context, WidgetRef ref, String type,
       double currentVal) {
-    final controller =
-    TextEditingController(text: currentVal > 0 ? currentVal.toString() : '');
+    final controller = TextEditingController(
+        text: currentVal > 0 ? currentVal.toString() : '');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -406,13 +490,11 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () {
               final val = double.tryParse(controller.text) ?? 0;
               if (type == 'height') {
-                ref
-                    .read(healthProvider.notifier)
-                    .updateManualEntry(height: val, date: DateTime.now());
+                ref.read(healthProvider.notifier).updateManualEntry(
+                    height: val, date: DateTime.now());
               } else {
-                ref
-                    .read(healthProvider.notifier)
-                    .updateManualEntry(weight: val, date: DateTime.now());
+                ref.read(healthProvider.notifier).updateManualEntry(
+                    weight: val, date: DateTime.now());
               }
               Navigator.pop(context);
             },
@@ -424,6 +506,83 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
+// ── Profile Avatar ─────────────────────────────────────────────────────────────
+
+class _ProfileAvatar extends StatelessWidget {
+  final String? imagePath;
+  final VoidCallback onTap;
+  const _ProfileAvatar({this.imagePath, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          CircleAvatar(
+            radius: 45,
+            backgroundColor: AppColors.primary,
+            backgroundImage: imagePath != null
+                ? (imagePath!.startsWith('http')
+                ? NetworkImage(imagePath!)
+                : FileImage(File(imagePath!)))
+            as ImageProvider
+                : null,
+            child: imagePath == null
+                ? const Icon(Icons.person, size: 45, color: AppColors.olive)
+                : null,
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.olive,
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(6),
+            child: const Icon(Icons.camera_alt, size: 14, color: Colors.black),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Active Diet Banner ─────────────────────────────────────────────────────────
+
+class _ActiveDietBanner extends StatelessWidget {
+  final List<String> labels;
+  final Color color;
+  final IconData icon;
+  const _ActiveDietBanner(
+      {required this.labels, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Active: ${labels.map((l) => l.toTitleCase()).join(', ')}. Scanner will warn you about incompatible products.',
+              style: TextStyle(color: color, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 class _EditableTextField extends StatelessWidget {
   final String label, value;
   final Function(String) onChanged;
@@ -434,7 +593,8 @@ class _EditableTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: TextEditingController(text: value),
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      style:
+      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       decoration: InputDecoration(
         labelText: label.toTitleCase(),
         labelStyle: const TextStyle(color: AppColors.olive),
@@ -469,7 +629,8 @@ class _EditableStat extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: Colors.white)),
           Text(label.toTitleCase(),
-              style: const TextStyle(fontSize: 10, color: Colors.white38)),
+              style:
+              const TextStyle(fontSize: 10, color: Colors.white38)),
         ],
       ),
     );

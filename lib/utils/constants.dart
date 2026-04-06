@@ -21,11 +21,10 @@ class AppColors {
   // Status
   static const Color warning       = Color(0xFFE9A84A);
   static const Color danger        = Color(0xFFCF6679);
-  static const Color freezer       = Color(0xFF4A7A5F);
 
   // Aliases for backwards compatibility
-  static const Color accent        = olive;
   static const Color text          = beige;
+  static const Color accent        = olive;
   static const Color secondary     = olive;
   static const Color success       = olive;
   static const Color dark          = background;
