@@ -1,6 +1,5 @@
 import '../services/database_service.dart';
 import '../models/meal_log.dart';
-import '../models/food_item.dart';
 
 class StreakService {
   static final StreakService instance = StreakService._();
@@ -8,14 +7,11 @@ class StreakService {
 
   final _db = DatabaseService.instance;
 
-  // ── Healthy Food Streak ────────────────────────────────────────────────────
-  // A day is "healthy" if avg NutriScore is A/B OR fiber >= 15g AND sugar <= 30g AND saturatedFat <= 10g
+  // ── Healthy Food Streak ─────────────────────────────────────────────────────
+  // A day is "healthy" if calories > 300 AND fiber >= 8g AND sugar <= 40g AND saturatedFat <= 15g
   Future<int> getHealthyFoodStreak() async {
-    final logs = await _getAllLogsGroupedByDay();
-    return _computeStreak(logs.keys.toList()..sort(), (day) {
-      final dayLogs = logs[day]!;
-      return _isDayHealthy(dayLogs);
-    });
+    final grouped = await _getAllLogsGroupedByDay();
+    return _computeStreak(grouped, _isDayHealthy);
   }
 
   bool _isDayHealthy(List<MealLog> logs) {
@@ -27,42 +23,39 @@ class StreakService {
       totalSatFat += l.saturatedFat;
       totalCalories += l.calories;
     }
-    // Must have eaten something (> 500 kcal) and meet thresholds
-    return totalCalories > 500 && totalFiber >= 10 && totalSugar <= 40 && totalSatFat <= 15;
+    return totalCalories > 300 &&
+        totalFiber >= 8 &&
+        totalSugar <= 40 &&
+        totalSatFat <= 15;
   }
 
-  // ── No Waste Streak ────────────────────────────────────────────────────────
-  // A day is "no waste" if no pantry item expired that day (expiryDate == that day but item still in pantry)
+  // ── No Waste Streak ─────────────────────────────────────────────────────────
+  // A day is "no waste" if no pantry item's expiryDate == that day (i.e. expired that day and was in pantry)
   Future<int> getNoWasteStreak() async {
     final allItems = await _db.getPantryItems();
     final now = DateTime.now();
 
-    // Group expired items by expiry date
-    final expiredDays = <String>{};
+    final expiredDayKeys = <String>{};
     for (final item in allItems) {
       if (item.expiryDate != null && item.expiryDate!.isBefore(now)) {
-        expiredDays.add(_dayKey(item.expiryDate!));
+        expiredDayKeys.add(_dayKey(item.expiryDate!));
       }
     }
 
-    // Count consecutive days backwards from yesterday with no waste
     int streak = 0;
     for (int i = 1; i <= 365; i++) {
       final day = DateTime(now.year, now.month, now.day - i);
-      if (expiredDays.contains(_dayKey(day))) break;
+      if (expiredDayKeys.contains(_dayKey(day))) break;
       streak++;
     }
     return streak;
   }
 
-  // ── Addiction Streak ───────────────────────────────────────────────────────
+  // ── Addiction Clean Streak ──────────────────────────────────────────────────
   // A day is "clean" if saturatedFat <= 20g AND sugar <= 30g AND sodium <= 2300mg AND cholesterol <= 300mg
   Future<int> getAddictionCleanStreak() async {
-    final logs = await _getAllLogsGroupedByDay();
-    return _computeStreak(logs.keys.toList()..sort(), (day) {
-      final dayLogs = logs[day]!;
-      return _isDayClean(dayLogs);
-    });
+    final grouped = await _getAllLogsGroupedByDay();
+    return _computeStreak(grouped, _isDayClean);
   }
 
   bool _isDayClean(List<MealLog> logs) {
@@ -77,7 +70,7 @@ class StreakService {
     return satFat <= 20 && sugar <= 30 && sodium <= 2300 && cholesterol <= 300;
   }
 
-  // ── Internal helpers ───────────────────────────────────────────────────────
+  // ── Internal ────────────────────────────────────────────────────────────────
 
   Future<Map<String, List<MealLog>>> _getAllLogsGroupedByDay() async {
     final now = DateTime.now();
@@ -101,7 +94,12 @@ class StreakService {
     return grouped;
   }
 
-  int _computeStreak(List<String> sortedDays, bool Function(String) isGood) {
+  /// Walk backwards from today counting consecutive qualifying days.
+  /// Today is included only if it already has logs (partial day is OK if it passes).
+  int _computeStreak(
+      Map<String, List<MealLog>> grouped,
+      bool Function(List<MealLog>) isGood,
+      ) {
     final now = DateTime.now();
     final todayKey = _dayKey(now);
     int streak = 0;
@@ -110,10 +108,17 @@ class StreakService {
       final day = DateTime(now.year, now.month, now.day - i);
       final key = _dayKey(day);
 
-      // Skip today if no logs yet (don't break streak for an incomplete day)
-      if (key == todayKey && !sortedDays.contains(key)) continue;
-      if (!sortedDays.contains(key)) break;
-      if (!isGood(key)) break;
+      final logsForDay = grouped[key] ?? [];
+
+      // Skip today entirely if no logs yet — don't break the streak
+      if (key == todayKey && logsForDay.isEmpty) continue;
+
+      // If we have no logs for a past day, streak is broken
+      if (logsForDay.isEmpty) break;
+
+      // If the day doesn't meet the threshold, streak is broken
+      if (!isGood(logsForDay)) break;
+
       streak++;
     }
     return streak;

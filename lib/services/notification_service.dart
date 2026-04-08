@@ -2,18 +2,29 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
+/// Handles all local notifications for Kolirus.
+///
+/// IMPORTANT — for notifications to appear when the app is CLOSED:
+/// AndroidManifest.xml must have:
+///   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+///   <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+///   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+/// These are already present in the project.
+///
+/// On Android 13+ the user must also grant POST_NOTIFICATIONS permission,
+/// which is requested at runtime via requestNotificationsPermission().
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notifications =
+  final FlutterLocalNotificationsPlugin _plugin =
   FlutterLocalNotificationsPlugin();
 
-  static const String _expiryChannelId = 'expiry_channel_v2';
-  static const String _expiryChannelName = 'Food Expirations';
-  static const String _generalChannelId = 'general_channel_v2';
-  static const String _generalChannelName = 'General Alerts';
+  static const _expiryChannelId = 'kolirus_expiry_v4';
+  static const _expiryChannelName = 'Food Expiry Reminders';
+  static const _generalChannelId = 'kolirus_general_v4';
+  static const _generalChannelName = 'General';
 
   bool _initialized = false;
 
@@ -21,153 +32,201 @@ class NotificationService {
     if (_initialized) return;
     tz.initializeTimeZones();
 
-    const androidSettings =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
 
-    await _notifications.initialize(
-      const InitializationSettings(
-          android: androidSettings, iOS: iosSettings),
+    await _plugin.initialize(
+      const InitializationSettings(android: android, iOS: ios),
     );
 
-    final androidPlugin = _notifications
-        .resolvePlatformSpecificImplementation<
+    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    
-    // Explicitly create channels for reliability
-    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
-      _expiryChannelId,
-      _expiryChannelName,
-      importance: Importance.max,
-      description: 'Notifications for food about to expire',
-    ));
-    
-    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
-      _generalChannelId,
-      _generalChannelName,
-      importance: Importance.high,
-    ));
 
-    await androidPlugin?.requestNotificationsPermission();
-    await androidPlugin?.requestExactAlarmsPermission();
+    // Always recreate channels — ensures importance level is applied
+    await androidImpl?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _expiryChannelId,
+        _expiryChannelName,
+        importance: Importance.max,
+        description: 'Daily reminders for food about to expire',
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+        enableLights: true,
+      ),
+    );
+
+    await androidImpl?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _generalChannelId,
+        _generalChannelName,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
+
+    // Request runtime permissions (Android 13+ / API 33+)
+    await androidImpl?.requestNotificationsPermission();
+    // Request exact alarm permission (Android 12+ / API 31+)
+    await androidImpl?.requestExactAlarmsPermission();
 
     _initialized = true;
   }
 
+  // ── Expiry scheduling ──────────────────────────────────────────────────────
+
   Future<void> cancelExpiryReminders(String itemId) async {
-    await _notifications.cancel(_notifId(itemId, suffix: '5d'));
-    await _notifications.cancel(_notifId(itemId, suffix: '1d'));
+    for (int day = 0; day <= 5; day++) {
+      await _plugin.cancel(_notifId(itemId, 'd$day'));
+    }
   }
 
+  /// Schedule one notification at 9:00 AM for each of the 5 days leading up
+  /// to (and including) the expiry date. Uses exactAllowWhileIdle so the
+  /// notification fires even when the device is asleep and the app is closed.
   Future<void> scheduleExpiryReminder(
-      String itemId, String name, DateTime expiryDate) async {
+      String itemId,
+      String itemName,
+      DateTime expiryDate,
+      ) async {
     await cancelExpiryReminders(itemId);
 
-    final now = DateTime.now();
-    // Use 9 AM for reminders
-    final baseTime = DateTime(expiryDate.year, expiryDate.month, expiryDate.day, 9, 0);
+    final now = tz.TZDateTime.now(tz.local);
 
-    // 5-day warning
-    final fiveDayDate = baseTime.subtract(const Duration(days: 5));
-    if (fiveDayDate.isAfter(now)) {
-      await _scheduleOne(
-        id: _notifId(itemId, suffix: '5d'),
-        title: 'Expiry in 5 Days',
-        body: '$name will expire soon (${_fmt(expiryDate)}).',
-        channelId: _expiryChannelId,
-        scheduledDate: fiveDayDate,
-      );
-    }
+    for (int daysAhead = 0; daysAhead <= 5; daysAhead++) {
+      final fireDate = tz.TZDateTime(
+        tz.local,
+        expiryDate.year,
+        expiryDate.month,
+        expiryDate.day,
+        9,
+        0,
+      ).subtract(Duration(days: daysAhead));
 
-    // 1-day warning
-    final oneDayDate = baseTime.subtract(const Duration(days: 1));
-    if (oneDayDate.isAfter(now)) {
-      await _scheduleOne(
-        id: _notifId(itemId, suffix: '1d'),
-        title: 'Expiry Tomorrow!',
-        body: '$name expires tomorrow! Use it today.',
+      if (fireDate.isBefore(now)) continue;
+
+      final title = daysAhead == 0
+          ? 'Use $itemName TODAY'
+          : daysAhead == 1
+          ? '$itemName expires tomorrow'
+          : '$itemName expires in $daysAhead days';
+
+      final body = daysAhead == 0
+          ? '$itemName expires today (${_fmt(expiryDate)}). Use it now!'
+          : daysAhead == 1
+          ? '$itemName expires tomorrow. Plan your meal today.'
+          : '$itemName will expire on ${_fmt(expiryDate)} — $daysAhead days left.';
+
+      await _scheduleNotification(
+        id: _notifId(itemId, 'd$daysAhead'),
+        title: title,
+        body: body,
         channelId: _expiryChannelId,
-        scheduledDate: oneDayDate,
+        channelName: _expiryChannelName,
+        fireAt: fireDate,
       );
     }
   }
 
+  // ── Test helpers ───────────────────────────────────────────────────────────
+
   Future<void> showTestNotification({
-    String title = 'Test Notification',
-    String body = 'Kolirus notifications are working!',
+    String title = 'Kolirus Test',
+    String body = 'Notifications are working correctly!',
   }) async {
-    await _notifications.show(
+    await _plugin.show(
       99999,
       title,
       body,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _generalChannelId,
           _generalChannelName,
-          importance: Importance.high,
+          importance: Importance.max,
           priority: Priority.high,
+          styleInformation: BigTextStyleInformation(body),
+          ticker: title,
+          playSound: true,
+          enableVibration: true,
         ),
-        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
     );
   }
 
   Future<void> scheduleTestExpiryIn5Seconds() async {
-    final scheduledDate = DateTime.now().add(const Duration(seconds: 5));
-    await _scheduleOne(
+    final fireAt =
+    tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
+    await _scheduleNotification(
       id: 88888,
-      title: 'Dev Test: Expiry Reminder',
-      body: 'This is what an expiry alert looks like.',
+      title: 'Dev: Expiry Test',
+      body: 'This notification fired 5s after scheduling — works in background!',
       channelId: _expiryChannelId,
-      scheduledDate: scheduledDate,
+      channelName: _expiryChannelName,
+      fireAt: fireAt,
     );
   }
 
-  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
-    return await _notifications.pendingNotificationRequests();
-  }
+  Future<List<PendingNotificationRequest>> getPendingNotifications() =>
+      _plugin.pendingNotificationRequests();
 
-  Future<void> cancelAll() async {
-    await _notifications.cancelAll();
-  }
+  Future<void> cancelAll() => _plugin.cancelAll();
 
-  Future<void> _scheduleOne({
+  // ── Core ───────────────────────────────────────────────────────────────────
+
+  Future<void> _scheduleNotification({
     required int id,
     required String title,
     required String body,
     required String channelId,
-    required DateTime scheduledDate,
+    required String channelName,
+    required tz.TZDateTime fireAt,
   }) async {
-    final tzDate = tz.TZDateTime.from(scheduledDate, tz.local);
-    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+    if (fireAt.isBefore(tz.TZDateTime.now(tz.local))) return;
 
-    await _notifications.zonedSchedule(
+    await _plugin.zonedSchedule(
       id,
       title,
       body,
-      tzDate,
+      fireAt,
       NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
-          'Notifications',
+          channelName,
           importance: Importance.max,
           priority: Priority.high,
+          styleInformation: BigTextStyleInformation(body),
+          ticker: title,
+          playSound: true,
+          enableVibration: true,
+          fullScreenIntent: false,
         ),
-        iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
+      // exactAllowWhileIdle fires even in Doze mode (device asleep, app closed)
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
       UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
-  int _notifId(String itemId, {required String suffix}) =>
+  int _notifId(String itemId, String suffix) =>
       '${itemId}_$suffix'.hashCode.abs() % 2147483647;
 
   String _fmt(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
