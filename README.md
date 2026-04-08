@@ -4,7 +4,7 @@
 
 # Kolirus
 
-**Track food, reduce waste, and eat better.**
+**Eat the same way your Mediteranean ate.**
 
 </div>
 
