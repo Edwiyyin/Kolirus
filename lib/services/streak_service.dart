@@ -30,24 +30,44 @@ class StreakService {
   }
 
   // ── No Waste Streak ─────────────────────────────────────────────────────────
-  // A day is "no waste" if no pantry item's expiryDate == that day (i.e. expired that day and was in pantry)
+  // Counts consecutive days going backwards from today where no item expired
+  // while still in the pantry (i.e. was not consumed before expiry).
+  // If pantry has no expired items at all, counts days since app start (up to 365).
   Future<int> getNoWasteStreak() async {
     final allItems = await _db.getPantryItems();
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
-    final expiredDayKeys = <String>{};
+    // Build a set of days where waste happened (item expired while still in pantry)
+    final wasteDays = <String>{};
     for (final item in allItems) {
-      if (item.expiryDate != null && item.expiryDate!.isBefore(now)) {
-        expiredDayKeys.add(_dayKey(item.expiryDate!));
+      if (item.expiryDate != null && item.expiryDate!.isBefore(today)) {
+        wasteDays.add(_dayKey(item.expiryDate!));
       }
     }
 
+    // Walk backwards from yesterday counting clean days
     int streak = 0;
     for (int i = 1; i <= 365; i++) {
-      final day = DateTime(now.year, now.month, now.day - i);
-      if (expiredDayKeys.contains(_dayKey(day))) break;
+      final day = today.subtract(Duration(days: i));
+      if (wasteDays.contains(_dayKey(day))) break;
       streak++;
     }
+
+    // If no waste ever, return days since the first pantry item was added
+    // (or a sensible default of 1 so the user sees progress immediately)
+    if (streak == 365 || wasteDays.isEmpty) {
+      // Find oldest item addedDate to compute real streak
+      if (allItems.isEmpty) return 1;
+      final oldest = allItems
+          .map((i) => i.addedDate)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      final daysSinceStart = today.difference(
+        DateTime(oldest.year, oldest.month, oldest.day),
+      ).inDays;
+      return daysSinceStart.clamp(1, 365);
+    }
+
     return streak;
   }
 

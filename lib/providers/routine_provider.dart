@@ -5,21 +5,47 @@ import '../models/recipe.dart';
 import '../services/database_service.dart';
 import 'food_log_provider.dart';
 
-final routineProvider = StateNotifierProvider<RoutineNotifier, List<MealRoutine>>((ref) {
+// State holds ALL loaded entries across all dates
+class RoutineState {
+  final Map<String, List<MealRoutine>> byDate; // key: 'yyyy-MM-dd'
+
+  const RoutineState({this.byDate = const {}});
+
+  List<MealRoutine> forDate(DateTime date) {
+    final key = _dayKey(date);
+    return byDate[key] ?? [];
+  }
+
+  RoutineState copyWith(String key, List<MealRoutine> entries) {
+    final newMap = Map<String, List<MealRoutine>>.from(byDate);
+    newMap[key] = entries;
+    return RoutineState(byDate: newMap);
+  }
+
+  static String _dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+final routineProvider =
+StateNotifierProvider<RoutineNotifier, RoutineState>((ref) {
   return RoutineNotifier(ref);
 });
 
-class RoutineNotifier extends StateNotifier<List<MealRoutine>> {
+class RoutineNotifier extends StateNotifier<RoutineState> {
   final Ref _ref;
-  RoutineNotifier(this._ref) : super([]) {
+  RoutineNotifier(this._ref) : super(const RoutineState()) {
     loadRoutine(DateTime.now());
   }
 
   final _db = DatabaseService.instance;
 
+  String _dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<void> loadRoutine(DateTime date) async {
-    final routine = await _db.getMealRoutine(date);
-    state = routine;
+    final key = _dayKey(date);
+    final entries = await _db.getMealRoutine(date);
+    state = state.copyWith(key, entries);
   }
 
   Future<void> addEntry(MealRoutine entry) async {
@@ -37,9 +63,15 @@ class RoutineNotifier extends StateNotifier<List<MealRoutine>> {
     await _db.insertMealRoutine(updated);
 
     if (updated.isEaten) {
-      // Try to fetch recipe macros if recipeId exists
-      double calories = 0, protein = 0, carbs = 0, fat = 0,
-          saturatedFat = 0, sodium = 0, cholesterol = 0, fiber = 0, sugar = 0;
+      double calories = 0,
+          protein = 0,
+          carbs = 0,
+          fat = 0,
+          saturatedFat = 0,
+          sodium = 0,
+          cholesterol = 0,
+          fiber = 0,
+          sugar = 0;
 
       if (entry.recipeId != null) {
         final recipes = await _db.getRecipes();
@@ -83,7 +115,6 @@ class RoutineNotifier extends StateNotifier<List<MealRoutine>> {
       );
       await _ref.read(foodLogProvider.notifier).addLog(log);
     } else {
-      // Un-check: try to remove the log entry for this routine
       await _ref.read(foodLogProvider.notifier).removeLogByRoutineId(
         entry.recipeId ?? 'routine',
         entry.manualEntry ?? 'Planned Meal',

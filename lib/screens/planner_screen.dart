@@ -9,23 +9,19 @@ import '../models/food_item.dart';
 import '../screens/recipe_screen.dart';
 import '../providers/routine_provider.dart';
 import '../providers/pantry_provider.dart';
-import '../providers/planner_provider.dart';
 
-
-// These times MUST match the format used in routine_screen.dart's hourly view
-// The routine screen builds time strings as 'HH:00' and checks entry.time == timeStr
 const _mealTimes = {
   MealType.Breakfast: '08:00',
-  MealType.Lunch:     '12:00',
-  MealType.Dinner:    '19:00',
-  MealType.Snack:     '15:00',
+  MealType.Lunch: '12:00',
+  MealType.Dinner: '19:00',
+  MealType.Snack: '15:00',
 };
 
 const _mealLabels = {
   MealType.Breakfast: 'Breakfast',
-  MealType.Lunch:     'Lunch',
-  MealType.Dinner:    'Dinner',
-  MealType.Snack:     'Snack',
+  MealType.Lunch: 'Lunch',
+  MealType.Dinner: 'Dinner',
+  MealType.Snack: 'Snack',
 };
 
 const _days = [
@@ -69,49 +65,45 @@ class PlannerScreen extends ConsumerStatefulWidget {
 
 class _PlannerScreenState extends ConsumerState<PlannerScreen>
     with TickerProviderStateMixin {
+  // Maximum supported template weeks
+  static const int _maxWeeks = 8;
+
   int _totalWeeks = 1;
   int _repeatFor = 4;
 
-  // 8 template weeks max; data preserved when resizing
-  late List<List<Map<MealType, _MealSlot>>> _weeks;
+  // Single source of truth: 8 weeks x 7 days x 4 meal types
+  // Initialized once and never replaced — only mutated via setState
+  late final List<List<Map<MealType, _MealSlot>>> _weeks;
+
   bool _isGenerating = false;
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _weeks = _emptyWeeks(8);
+    _weeks = List.generate(
+      _maxWeeks,
+          (_) => List.generate(
+        7,
+            (_) => {for (final m in _meals) m: _MealSlot()},
+      ),
+    );
     _tabController = TabController(length: _totalWeeks, vsync: this);
-  }
-
-  List<List<Map<MealType, _MealSlot>>> _emptyWeeks(int count) =>
-      List.generate(count, (_) =>
-          List.generate(7, (_) =>
-          {for (final m in _meals) m: _MealSlot()}));
-
-  void _setWeekCount(int count) {
-    if (count == _totalWeeks) return;
-    // Preserve existing slot data
-    final newWeeks = _emptyWeeks(8);
-    for (int w = 0; w < _weeks.length; w++) {
-      for (int d = 0; d < 7; d++) {
-        for (final m in _meals) {
-          newWeeks[w][d][m] = _weeks[w][d][m]!;
-        }
-      }
-    }
-    _tabController.dispose();
-    setState(() {
-      _totalWeeks = count;
-      _weeks = newWeeks;
-      _tabController = TabController(length: count, vsync: this);
-    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _setWeekCount(int count) {
+    if (count == _totalWeeks) return;
+    _tabController.dispose();
+    setState(() {
+      _totalWeeks = count;
+      _tabController = TabController(length: count, vsync: this);
+    });
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -131,7 +123,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
           labelColor: AppColors.olive,
           unselectedLabelColor: Colors.white38,
           tabs: List.generate(
-              _totalWeeks, (i) => Tab(text: 'Week ${i + 1}')),
+            _totalWeeks,
+                (i) => Tab(text: 'Week ${i + 1}'),
+          ),
         )
             : null,
       ),
@@ -144,7 +138,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
                 : TabBarView(
               controller: _tabController,
               children: List.generate(
-                  _totalWeeks, (wi) => _buildWeekView(wi, recipes)),
+                _totalWeeks,
+                    (wi) => _buildWeekView(wi, recipes),
+              ),
             ),
           ),
           _buildFooter(),
@@ -173,12 +169,18 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
                     color: AppColors.olive,
                     fontSize: 13,
                     fontWeight: FontWeight.bold),
-                items: List.generate(8, (i) => i + 1)
+                items: List.generate(
+                  _maxWeeks,
+                      (i) => i + 1,
+                )
                     .map((v) => DropdownMenuItem(
-                    value: v,
-                    child: Text('$v week${v > 1 ? 's' : ''}')))
+                  value: v,
+                  child: Text('$v week${v > 1 ? 's' : ''}'),
+                ))
                     .toList(),
-                onChanged: (v) { if (v != null) _setWeekCount(v); },
+                onChanged: (v) {
+                  if (v != null) _setWeekCount(v);
+                },
               ),
             ),
           ),
@@ -197,10 +199,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
                     fontWeight: FontWeight.bold),
                 items: [1, 2, 4, 8, 12]
                     .map((v) => DropdownMenuItem(
-                    value: v,
-                    child: Text('$v week${v > 1 ? 's' : ''}')))
+                  value: v,
+                  child: Text('$v week${v > 1 ? 's' : ''}'),
+                ))
                     .toList(),
-                onChanged: (v) { if (v != null) setState(() => _repeatFor = v); },
+                onChanged: (v) {
+                  if (v != null) setState(() => _repeatFor = v);
+                },
               ),
             ),
           ),
@@ -211,11 +216,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
 
   Widget _configTile({required String label, required Widget child}) =>
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.olive.withOpacity(0.2)),
+          border:
+          Border.all(color: AppColors.olive.withOpacity(0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,15 +264,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
       ),
       child: Column(
         children: [
-          // Day header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 8, 6),
             child: Row(
               children: [
                 Text(_days[di],
                     style: TextStyle(
-                        color:
-                        hasAny ? AppColors.olive : AppColors.beige,
+                        color: hasAny
+                            ? AppColors.olive
+                            : AppColors.beige,
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
                 if (hasAny)
@@ -289,14 +296,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
   }
 
   Widget _mealRow(int wi, int di, MealType meal, List<Recipe> recipes) {
-
-    final template = ref.watch(plannerTemplateProvider);final slot = template[wi]?[di]?[meal] ?? MealSlot();
+    // Read directly from local _weeks — single source of truth
+    final slot = _weeks[wi][di][meal]!;
     final filled = !slot.isEmpty;
+
     return InkWell(
       onTap: () => _showSlotPicker(wi, di, meal, recipes),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding:
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.circular(10),
@@ -341,12 +350,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
 
   // ── Slot picker ────────────────────────────────────────────────────────────
 
-  void _showSlotPicker(int wi, int di, MealType meal, List<Recipe> recipes) {
+  void _showSlotPicker(
+      int wi, int di, MealType meal, List<Recipe> recipes) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+          BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -403,10 +414,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
     );
   }
 
-  void _pickRecipe(int wi, int di, MealType meal, List<Recipe> recipes) {
+  void _pickRecipe(
+      int wi, int di, MealType meal, List<Recipe> recipes) {
     if (recipes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No recipes yet — add some first!')));
+          const SnackBar(
+              content:
+              Text('No recipes yet — add some first!')));
       return;
     }
     showModalBottomSheet(
@@ -414,7 +428,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
       backgroundColor: AppColors.background,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+          BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         expand: false,
@@ -434,18 +449,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
                       ? Text('${recipes[i].calories.toInt()} kcal')
                       : null,
                   onTap: () {
-                    final newSlot = MealSlot(
-                      name: recipes[i].name,
-                      recipeId: recipes[i].id,
-                      calories: recipes[i].calories,
-                      protein: recipes[i].protein,
-                      carbs: recipes[i].carbs,
-                      fat: recipes[i].fat,
-                    );
-
-                    // UPDATE THE PROVIDER
-                    ref.read(plannerTemplateProvider.notifier).updateSlot(wi, di, meal, newSlot);
-
+                    setState(() {
+                      _weeks[wi][di][meal] = _MealSlot(
+                        name: recipes[i].name,
+                        recipeId: recipes[i].id,
+                        calories: recipes[i].calories,
+                        protein: recipes[i].protein,
+                        carbs: recipes[i].carbs,
+                        fat: recipes[i].fat,
+                      );
+                    });
                     Navigator.pop(ctx);
                   },
                 ),
@@ -469,7 +482,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
       backgroundColor: AppColors.background,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+          BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         expand: false,
@@ -510,15 +524,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
 
   void _manualEntry(int wi, int di, MealType meal) {
     final existing = _weeks[wi][di][meal]!;
-    final nameCtrl = TextEditingController(text: existing.name ?? '');
+    final nameCtrl =
+    TextEditingController(text: existing.name ?? '');
     final calCtrl = TextEditingController(
         text: existing.calories?.toString() ?? '');
     final protCtrl = TextEditingController(
         text: existing.protein?.toString() ?? '');
     final carbCtrl = TextEditingController(
         text: existing.carbs?.toString() ?? '');
-    final fatCtrl = TextEditingController(
-        text: existing.fat?.toString() ?? '');
+    final fatCtrl =
+    TextEditingController(text: existing.fat?.toString() ?? '');
 
     showDialog(
       context: context,
@@ -606,8 +621,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
               child: Text(
                 '$filled meal slot${filled == 1 ? '' : 's'} planned · '
                     'will repeat over $totalDays days in your Routine',
-                style: const TextStyle(
-                    color: Colors.white54, fontSize: 12),
+                style:
+                const TextStyle(color: Colors.white54, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -621,7 +636,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
             onPressed:
             (_isGenerating || filled == 0) ? null : _generate,
             child: _isGenerating
-                ? const CircularProgressIndicator(color: Colors.black)
+                ? const CircularProgressIndicator(
+                color: Colors.black)
                 : Text(
               filled == 0
                   ? 'Add meals above first'
@@ -643,11 +659,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
     setState(() => _isGenerating = true);
     try {
       final now = DateTime.now();
-      // Start from the coming Monday (today if today is Monday)
-      final weekday = now.weekday; // DateTime.monday == 1
+      final weekday = now.weekday;
       final daysToMon =
       weekday == DateTime.monday ? 0 : (8 - weekday) % 7;
-      final startDate = DateTime(now.year, now.month, now.day)
+      final startDate =
+      DateTime(now.year, now.month, now.day)
           .add(Duration(days: daysToMon));
 
       int count = 0;
@@ -661,8 +677,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
             final slot = _weeks[templateWeek][di][meal]!;
             if (slot.isEmpty) continue;
 
-            // Build a unique, deterministic ID so re-running the planner
-            // with the same template replaces rather than duplicates entries.
             final entryId =
                 '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}_${meal.index}';
 
@@ -672,8 +686,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
               mealType: meal,
               recipeId: slot.recipeId,
               manualEntry: slot.name,
-              // time must be 'HH:00' — the routine screen builds
-              // timeStr as '${hour.toString().padLeft(2,'0')}:00'
               time: _mealTimes[meal],
               isEaten: false,
               calories: slot.calories,
@@ -682,8 +694,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
               fat: slot.fat,
             );
 
-            // insertMealRoutine uses REPLACE conflict algorithm, so
-            // re-generating with the same template safely overwrites.
             await ref
                 .read(routineProvider.notifier)
                 .addEntry(entry);
@@ -697,8 +707,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen>
           SnackBar(
             content: Text(
               '$count meals added to your Routine starting '
-                  '${DateFormat('d MMM').format(startDate)}. '
-                  'Open the Routine tab to see them.',
+                  '${DateFormat('d MMM').format(startDate)}.',
             ),
             backgroundColor: AppColors.olive,
             duration: const Duration(seconds: 4),
