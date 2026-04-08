@@ -24,7 +24,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -48,8 +48,7 @@ class DatabaseService {
       try { await db.execute('ALTER TABLE recipes ADD COLUMN category TEXT DEFAULT "Lunch"'); } catch (_) {}
     }
     if (oldVersion < 7) {
-      final columns = ['calories', 'protein', 'carbs', 'fat', 'saturatedFat', 'sodium', 'cholesterol', 'fiber', 'sugar'];
-      for (var col in columns) {
+      for (var col in ['calories','protein','carbs','fat','saturatedFat','sodium','cholesterol','fiber','sugar']) {
         try { await db.execute('ALTER TABLE recipes ADD COLUMN $col REAL DEFAULT 0'); } catch (_) {}
       }
     }
@@ -60,10 +59,8 @@ class DatabaseService {
       try { await db.execute('ALTER TABLE meal_routine ADD COLUMN fat REAL'); } catch (_) {}
     }
     if (oldVersion < 9) {
-      final tables = ['food_items', 'scan_history', 'meal_logs'];
-      final nutrients = ['potassium', 'magnesium', 'vitaminC', 'vitaminD', 'calcium', 'iron'];
-      for (var table in tables) {
-        for (var n in nutrients) {
+      for (var table in ['food_items','scan_history','meal_logs']) {
+        for (var n in ['potassium','magnesium','vitaminC','vitaminD','calcium','iron']) {
           try { await db.execute('ALTER TABLE $table ADD COLUMN $n REAL DEFAULT 0'); } catch (_) {}
         }
         try { await db.execute('ALTER TABLE $table ADD COLUMN price REAL'); } catch (_) {}
@@ -71,25 +68,48 @@ class DatabaseService {
     }
     if (oldVersion < 10) {
       try { await db.execute('ALTER TABLE health_entries ADD COLUMN height REAL DEFAULT 0'); } catch (_) {}
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS receipts (
-          id TEXT PRIMARY KEY,
-          date TEXT NOT NULL,
-          imageUrl TEXT,
-          totalAmount REAL,
-          items TEXT
-        )
-      ''');
+      await db.execute('''CREATE TABLE IF NOT EXISTS receipts (id TEXT PRIMARY KEY, date TEXT NOT NULL, imageUrl TEXT, totalAmount REAL, items TEXT)''');
     }
     if (oldVersion < 11) {
       try { await db.execute('ALTER TABLE shopping_list ADD COLUMN quantity REAL DEFAULT 1'); } catch (_) {}
       try { await db.execute('ALTER TABLE shopping_list ADD COLUMN recipeId TEXT'); } catch (_) {}
       try { await db.execute('ALTER TABLE shopping_list ADD COLUMN notes TEXT'); } catch (_) {}
       try { await db.execute('ALTER TABLE shopping_list ADD COLUMN listId TEXT DEFAULT "default"'); } catch (_) {}
+      await db.execute('CREATE TABLE IF NOT EXISTS shopping_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL)');
+    }
+    if (oldVersion < 12) {
       await db.execute('''
-        CREATE TABLE IF NOT EXISTS shopping_groups (
+        CREATE TABLE IF NOT EXISTS water_logs (
           id TEXT PRIMARY KEY,
-          name TEXT NOT NULL
+          timestamp TEXT NOT NULL,
+          ml REAL NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS custom_diets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          violationKeywords TEXT NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 13) {
+      // Google account field in settings — stored as key/value, no schema change needed
+      // Ensure water_logs exists for users upgrading from < 12 directly
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS water_logs (
+          id TEXT PRIMARY KEY,
+          timestamp TEXT NOT NULL,
+          ml REAL NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS custom_diets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          violationKeywords TEXT NOT NULL
         )
       ''');
     }
@@ -98,37 +118,29 @@ class DatabaseService {
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE food_items (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        barcode TEXT,
-        brand TEXT,
-        imageUrl TEXT,
-        nutriScore TEXT,
-        allergens TEXT NOT NULL,
-        ingredientsText TEXT,
-        location INTEGER NOT NULL,
-        expiryDate TEXT,
-        addedDate TEXT NOT NULL,
-        calories REAL NOT NULL, protein REAL NOT NULL, carbs REAL NOT NULL, fat REAL NOT NULL,
-        saturatedFat REAL NOT NULL, sodium REAL NOT NULL, cholesterol REAL NOT NULL,
-        fiber REAL NOT NULL, sugar REAL NOT NULL, potassium REAL NOT NULL DEFAULT 0,
-        magnesium REAL NOT NULL DEFAULT 0, vitaminC REAL NOT NULL DEFAULT 0,
-        vitaminD REAL NOT NULL DEFAULT 0, calcium REAL NOT NULL DEFAULT 0,
-        iron REAL NOT NULL DEFAULT 0, price REAL
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, barcode TEXT, brand TEXT,
+        imageUrl TEXT, nutriScore TEXT, allergens TEXT NOT NULL, ingredientsText TEXT,
+        location INTEGER NOT NULL, expiryDate TEXT, addedDate TEXT NOT NULL,
+        calories REAL NOT NULL, protein REAL NOT NULL, carbs REAL NOT NULL,
+        fat REAL NOT NULL, saturatedFat REAL NOT NULL, sodium REAL NOT NULL,
+        cholesterol REAL NOT NULL, fiber REAL NOT NULL, sugar REAL NOT NULL,
+        potassium REAL NOT NULL DEFAULT 0, magnesium REAL NOT NULL DEFAULT 0,
+        vitaminC REAL NOT NULL DEFAULT 0, vitaminD REAL NOT NULL DEFAULT 0,
+        calcium REAL NOT NULL DEFAULT 0, iron REAL NOT NULL DEFAULT 0, price REAL
       )
     ''');
 
     await db.execute('''
       CREATE TABLE recipes (
-        id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, ingredients TEXT NOT NULL,
-        instructions TEXT NOT NULL, imageUrl TEXT, isCommunityShared INTEGER NOT NULL,
-        prepTime INTEGER NOT NULL DEFAULT 0, cookTime INTEGER NOT NULL DEFAULT 0,
-        servings INTEGER NOT NULL DEFAULT 1, category TEXT NOT NULL DEFAULT 'Lunch',
-        calories REAL NOT NULL DEFAULT 0, protein REAL NOT NULL DEFAULT 0,
-        carbs REAL NOT NULL DEFAULT 0, fat REAL NOT NULL DEFAULT 0,
-        saturatedFat REAL NOT NULL DEFAULT 0, sodium REAL NOT NULL DEFAULT 0,
-        cholesterol REAL NOT NULL DEFAULT 0, fiber REAL NOT NULL DEFAULT 0,
-        sugar REAL NOT NULL DEFAULT 0
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+        ingredients TEXT NOT NULL, instructions TEXT NOT NULL, imageUrl TEXT,
+        isCommunityShared INTEGER NOT NULL, prepTime INTEGER NOT NULL DEFAULT 0,
+        cookTime INTEGER NOT NULL DEFAULT 0, servings INTEGER NOT NULL DEFAULT 1,
+        category TEXT NOT NULL DEFAULT 'Lunch', calories REAL NOT NULL DEFAULT 0,
+        protein REAL NOT NULL DEFAULT 0, carbs REAL NOT NULL DEFAULT 0,
+        fat REAL NOT NULL DEFAULT 0, saturatedFat REAL NOT NULL DEFAULT 0,
+        sodium REAL NOT NULL DEFAULT 0, cholesterol REAL NOT NULL DEFAULT 0,
+        fiber REAL NOT NULL DEFAULT 0, sugar REAL NOT NULL DEFAULT 0
       )
     ''');
 
@@ -179,31 +191,46 @@ class DatabaseService {
         id TEXT PRIMARY KEY, date TEXT NOT NULL, imageUrl TEXT, totalAmount REAL, items TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE water_logs (
+        id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, ml REAL NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE custom_diets (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+        violationKeywords TEXT NOT NULL
+      )
+    ''');
   }
 
   Future _createScanHistoryTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS scan_history (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, barcode TEXT, brand TEXT,
-        imageUrl TEXT, nutriScore TEXT, allergens TEXT NOT NULL,
-        ingredientsText TEXT, location INTEGER NOT NULL, expiryDate TEXT,
-        addedDate TEXT NOT NULL, calories REAL NOT NULL, protein REAL NOT NULL,
-        carbs REAL NOT NULL, fat REAL NOT NULL, saturatedFat REAL NOT NULL,
-        sodium REAL NOT NULL, cholesterol REAL NOT NULL, fiber REAL NOT NULL,
-        sugar REAL NOT NULL, potassium REAL NOT NULL DEFAULT 0,
-        magnesium REAL NOT NULL DEFAULT 0, vitaminC REAL NOT NULL DEFAULT 0,
-        vitaminD REAL NOT NULL DEFAULT 0, calcium REAL NOT NULL DEFAULT 0,
-        iron REAL NOT NULL DEFAULT 0, price REAL
+        imageUrl TEXT, nutriScore TEXT, allergens TEXT NOT NULL, ingredientsText TEXT,
+        location INTEGER NOT NULL, expiryDate TEXT, addedDate TEXT NOT NULL,
+        calories REAL NOT NULL, protein REAL NOT NULL, carbs REAL NOT NULL,
+        fat REAL NOT NULL, saturatedFat REAL NOT NULL, sodium REAL NOT NULL,
+        cholesterol REAL NOT NULL, fiber REAL NOT NULL, sugar REAL NOT NULL,
+        potassium REAL NOT NULL DEFAULT 0, magnesium REAL NOT NULL DEFAULT 0,
+        vitaminC REAL NOT NULL DEFAULT 0, vitaminD REAL NOT NULL DEFAULT 0,
+        calcium REAL NOT NULL DEFAULT 0, iron REAL NOT NULL DEFAULT 0, price REAL
       )
     ''');
   }
+
+  // ── Generic CRUD ──────────────────────────────────────────────────────────
 
   Future<void> insert(String table, Map<String, dynamic> data) async {
     final db = await database;
     await db.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<List<Map<String, dynamic>>> query(String table, {String? where, List<dynamic>? whereArgs, String? orderBy, int? limit}) async {
+  Future<List<Map<String, dynamic>>> query(String table,
+      {String? where, List<dynamic>? whereArgs, String? orderBy, int? limit}) async {
     final db = await database;
     return await db.query(table, where: where, whereArgs: whereArgs, orderBy: orderBy, limit: limit);
   }
@@ -213,47 +240,43 @@ class DatabaseService {
     await db.delete(table, where: where, whereArgs: whereArgs);
   }
 
-  // Specialized methods
+  // ── Specialized ───────────────────────────────────────────────────────────
+
   Future<void> insertFoodItem(FoodItem item) => insert('food_items', item.toMap());
 
   Future<List<FoodItem>> getPantryItems() async {
     final res = await query('food_items');
-    return res.map((json) => FoodItem.fromMap(json)).toList();
+    return res.map(FoodItem.fromMap).toList();
   }
 
-  /// Delete a food item by id, barcode, or name (tries all three)
   Future<void> deleteFoodItem(String key) async {
     final db = await database;
-    // Try by primary id first
     int count = await db.delete('food_items', where: 'id = ?', whereArgs: [key]);
-    // If nothing deleted, try by barcode
-    if (count == 0) {
-      count = await db.delete('food_items', where: 'barcode = ?', whereArgs: [key]);
-    }
-    // If still nothing, try by name
-    if (count == 0) {
-      await db.delete('food_items', where: 'name = ?', whereArgs: [key]);
-    }
+    if (count == 0) count = await db.delete('food_items', where: 'barcode = ?', whereArgs: [key]);
+    if (count == 0) await db.delete('food_items', where: 'name = ?', whereArgs: [key]);
   }
 
   Future<void> insertScanHistory(FoodItem item) => insert('scan_history', item.toMap());
   Future<List<FoodItem>> getScanHistory() async {
     final res = await query('scan_history', orderBy: 'addedDate DESC', limit: 50);
-    return res.map((json) => FoodItem.fromMap(json)).toList();
+    return res.map(FoodItem.fromMap).toList();
   }
+
   Future<void> insertRecipe(Recipe recipe) => insert('recipes', recipe.toMap());
   Future<List<Recipe>> getRecipes() async {
     final res = await query('recipes');
-    return res.map((json) => Recipe.fromMap(json)).toList();
+    return res.map(Recipe.fromMap).toList();
   }
+
   Future<void> insertMealLog(MealLog log) => insert('meal_logs', log.toMap());
   Future<List<MealLog>> getMealLogs(DateTime date) async {
-    final startOfDay = DateTime(date.year, date.month, date.day).toIso8601String();
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59).toIso8601String();
-    final res = await query('meal_logs', where: 'consumedAt BETWEEN ? AND ?', whereArgs: [startOfDay, endOfDay]);
-    return res.map((json) => MealLog.fromMap(json)).toList();
+    final s = DateTime(date.year, date.month, date.day).toIso8601String();
+    final e = DateTime(date.year, date.month, date.day, 23, 59, 59).toIso8601String();
+    final res = await query('meal_logs', where: 'consumedAt BETWEEN ? AND ?', whereArgs: [s, e]);
+    return res.map(MealLog.fromMap).toList();
   }
   Future<void> deleteMealLog(String id) => delete('meal_logs', where: 'id = ?', whereArgs: [id]);
+
   Future<void> insertHealthEntry(HealthEntry entry) => insert('health_entries', entry.toMap());
   Future<HealthEntry?> getHealthEntryForDate(DateTime date) async {
     final dateStr = DateTime(date.year, date.month, date.day).toIso8601String().split('T')[0];
@@ -262,17 +285,30 @@ class DatabaseService {
   }
   Future<List<HealthEntry>> getAllHealthEntries() async {
     final result = await query('health_entries', orderBy: 'date ASC');
-    return result.map((json) => HealthEntry.fromMap(json)).toList();
+    return result.map(HealthEntry.fromMap).toList();
   }
+
   Future<void> saveSetting(String key, String value) => insert('user_settings', {'key': key, 'value': value});
   Future<String?> getSetting(String key) async {
     final res = await query('user_settings', where: 'key = ?', whereArgs: [key]);
     return res.isNotEmpty ? res.first['value'] as String : null;
   }
+
   Future<void> insertMealRoutine(MealRoutine routine) => insert('meal_routine', routine.toMap());
   Future<List<MealRoutine>> getMealRoutine(DateTime date) async {
     final dateStr = DateTime(date.year, date.month, date.day).toIso8601String().split('T')[0];
-    return (await query('meal_routine', where: 'date LIKE ?', whereArgs: ['$dateStr%'])).map((j) => MealRoutine.fromMap(j)).toList();
+    return (await query('meal_routine', where: 'date LIKE ?', whereArgs: ['$dateStr%']))
+        .map(MealRoutine.fromMap)
+        .toList();
   }
   Future<void> deleteMealRoutine(String id) => delete('meal_routine', where: 'id = ?', whereArgs: [id]);
+
+  Future<List<Map<String, dynamic>>> getCustomDiets() =>
+      query('custom_diets');
+
+  Future<void> saveCustomDiet(Map<String, dynamic> diet) =>
+      insert('custom_diets', diet);
+
+  Future<void> deleteCustomDiet(String id) =>
+      delete('custom_diets', where: 'id = ?', whereArgs: [id]);
 }

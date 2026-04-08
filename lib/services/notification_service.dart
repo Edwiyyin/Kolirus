@@ -10,10 +10,10 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notifications =
   FlutterLocalNotificationsPlugin();
 
-  static const String _expiryChannelId = 'expiry_channel';
-  static const String _expiryChannelName = 'Expirations';
-  static const String _generalChannelId = 'general_channel';
-  static const String _generalChannelName = 'General';
+  static const String _expiryChannelId = 'expiry_channel_v2';
+  static const String _expiryChannelName = 'Food Expirations';
+  static const String _generalChannelId = 'general_channel_v2';
+  static const String _generalChannelName = 'General Alerts';
 
   bool _initialized = false;
 
@@ -34,17 +34,29 @@ class NotificationService {
           android: androidSettings, iOS: iosSettings),
     );
 
-    // Request Android 13+ permission
     final androidPlugin = _notifications
         .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
+    
+    // Explicitly create channels for reliability
+    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
+      _expiryChannelId,
+      _expiryChannelName,
+      importance: Importance.max,
+      description: 'Notifications for food about to expire',
+    ));
+    
+    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
+      _generalChannelId,
+      _generalChannelName,
+      importance: Importance.high,
+    ));
+
     await androidPlugin?.requestNotificationsPermission();
     await androidPlugin?.requestExactAlarmsPermission();
 
     _initialized = true;
   }
-
-  // ── Expiry reminders ───────────────────────────────────────────────────────
 
   Future<void> cancelExpiryReminders(String itemId) async {
     await _notifications.cancel(_notifId(itemId, suffix: '5d'));
@@ -56,45 +68,33 @@ class NotificationService {
     await cancelExpiryReminders(itemId);
 
     final now = DateTime.now();
+    // Use 9 AM for reminders
+    final baseTime = DateTime(expiryDate.year, expiryDate.month, expiryDate.day, 9, 0);
 
     // 5-day warning
-    final fiveDayDate = DateTime(
-      expiryDate.year,
-      expiryDate.month,
-      expiryDate.day - 5,
-      9, 0, 0,
-    );
+    final fiveDayDate = baseTime.subtract(const Duration(days: 5));
     if (fiveDayDate.isAfter(now)) {
       await _scheduleOne(
         id: _notifId(itemId, suffix: '5d'),
         title: 'Expiry in 5 Days',
-        body: '$name expires on ${_fmt(expiryDate)} — use it soon!',
+        body: '$name will expire soon (${_fmt(expiryDate)}).',
         channelId: _expiryChannelId,
-        channelName: _expiryChannelName,
         scheduledDate: fiveDayDate,
       );
     }
 
     // 1-day warning
-    final oneDayDate = DateTime(
-      expiryDate.year,
-      expiryDate.month,
-      expiryDate.day - 1,
-      9, 0, 0,
-    );
+    final oneDayDate = baseTime.subtract(const Duration(days: 1));
     if (oneDayDate.isAfter(now)) {
       await _scheduleOne(
         id: _notifId(itemId, suffix: '1d'),
         title: 'Expiry Tomorrow!',
-        body: '$name expires tomorrow (${_fmt(expiryDate)})!',
+        body: '$name expires tomorrow! Use it today.',
         channelId: _expiryChannelId,
-        channelName: _expiryChannelName,
         scheduledDate: oneDayDate,
       );
     }
   }
-
-  // ── Immediate test notification (for dev menu) ─────────────────────────────
 
   Future<void> showTestNotification({
     String title = 'Test Notification',
@@ -104,33 +104,25 @@ class NotificationService {
       99999,
       title,
       body,
-      NotificationDetails(
+      const NotificationDetails(
         android: AndroidNotificationDetails(
           _generalChannelId,
           _generalChannelName,
-          channelDescription: 'General Kolirus notifications',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
     );
   }
 
-  /// Schedule a notification 5 seconds from now (for dev testing)
   Future<void> scheduleTestExpiryIn5Seconds() async {
     final scheduledDate = DateTime.now().add(const Duration(seconds: 5));
     await _scheduleOne(
       id: 88888,
-      title: 'Test Expiry Reminder',
-      body: 'This is a test expiry notification from Kolirus dev menu.',
+      title: 'Dev Test: Expiry Reminder',
+      body: 'This is what an expiry alert looks like.',
       channelId: _expiryChannelId,
-      channelName: _expiryChannelName,
       scheduledDate: scheduledDate,
     );
   }
@@ -143,18 +135,14 @@ class NotificationService {
     await _notifications.cancelAll();
   }
 
-  // ── Internal ───────────────────────────────────────────────────────────────
-
   Future<void> _scheduleOne({
     required int id,
     required String title,
     required String body,
     required String channelId,
-    required String channelName,
     required DateTime scheduledDate,
   }) async {
     final tzDate = tz.TZDateTime.from(scheduledDate, tz.local);
-    // If the computed time is in the past, skip silently
     if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
 
     await _notifications.zonedSchedule(
@@ -165,17 +153,11 @@ class NotificationService {
       NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
-          channelName,
-          channelDescription: 'Reminders about food expiry dates',
-          importance: Importance.high,
+          'Notifications',
+          importance: Importance.max,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
+        iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:

@@ -18,9 +18,13 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     final allItems = ref.watch(shoppingProvider);
     final groups = ref.watch(shoppingGroupsProvider);
     
-    // Set default group if none selected
-    if (_selectedGroupId == null && groups.isNotEmpty) {
-      _selectedGroupId = groups.first['id'];
+    // Auto-select first group if none selected or previous selection was deleted
+    if (groups.isNotEmpty) {
+      if (_selectedGroupId == null || !groups.any((g) => g['id'] == _selectedGroupId)) {
+        _selectedGroupId = groups.first['id'];
+      }
+    } else {
+      _selectedGroupId = null;
     }
 
     final groupItems = _selectedGroupId == null 
@@ -34,14 +38,14 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
       ),
       body: Column(
         children: [
-          // Custom Header for Groups
+          // Group selector
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
               children: [
                 Expanded(
                   child: groups.isEmpty 
-                    ? const Text('No groups yet', style: TextStyle(color: Colors.white24))
+                    ? const Text('Create a list to start', style: TextStyle(color: Colors.white24, fontSize: 13))
                     : SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -54,7 +58,9 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
                                 child: ChoiceChip(
                                   label: Text(g['name'], style: const TextStyle(fontSize: 12)),
                                   selected: isSelected,
-                                  onSelected: (s) => setState(() => _selectedGroupId = g['id']),
+                                  onSelected: (s) {
+                                    if (s) setState(() => _selectedGroupId = g['id']);
+                                  },
                                   selectedColor: AppColors.olive.withOpacity(0.3),
                                 ),
                               ),
@@ -71,37 +77,54 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
             ),
           ),
 
-          if (_selectedGroupId != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  hintText: 'Add item to current list...',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.add_circle, color: AppColors.olive),
-                    onPressed: () {
-                      if (controller.text.isNotEmpty) {
-                        ref.read(shoppingProvider.notifier).addItem(controller.text, listId: _selectedGroupId!);
-                        controller.clear();
-                      }
-                    },
-                  ),
+          // Input field - only enabled if a group exists
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: controller,
+              enabled: _selectedGroupId != null,
+              decoration: InputDecoration(
+                hintText: _selectedGroupId == null ? 'Create a list first...' : 'Add item to current list...',
+                hintStyle: const TextStyle(color: Colors.white24),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.add_circle, color: _selectedGroupId == null ? Colors.white10 : AppColors.olive),
+                  onPressed: () {
+                    if (_selectedGroupId != null && controller.text.isNotEmpty) {
+                      ref.read(shoppingProvider.notifier).addItem(controller.text, listId: _selectedGroupId!);
+                      controller.clear();
+                    }
+                  },
                 ),
-                onSubmitted: (val) {
-                  if (val.isNotEmpty) {
-                    ref.read(shoppingProvider.notifier).addItem(val, listId: _selectedGroupId!);
-                    controller.clear();
-                  }
-                },
               ),
+              onSubmitted: (val) {
+                if (_selectedGroupId != null && val.isNotEmpty) {
+                  ref.read(shoppingProvider.notifier).addItem(val, listId: _selectedGroupId!);
+                  controller.clear();
+                }
+              },
             ),
+          ),
           
           Expanded(
             child: _selectedGroupId == null
-                ? const Center(child: Text('Create a group to start adding items', style: TextStyle(color: Colors.white24)))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.playlist_add, size: 48, color: Colors.white10),
+                        const SizedBox(height: 16),
+                        const Text('You need at least one shopping list', style: TextStyle(color: Colors.white24)),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _showAddGroupDialog,
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+                          child: const Text('Create My First List', style: TextStyle(color: Colors.black)),
+                        ),
+                      ],
+                    ),
+                  )
                 : groupItems.isEmpty
-                    ? const Center(child: Text('Empty list', style: TextStyle(color: Colors.white24)))
+                    ? const Center(child: Text('This list is empty', style: TextStyle(color: Colors.white24)))
                     : ListView.builder(
                         itemCount: groupItems.length,
                         itemBuilder: (context, index) {
@@ -160,7 +183,6 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
           TextButton(
             onPressed: () {
               ref.read(shoppingGroupsProvider.notifier).removeGroup(group['id']);
-              if (_selectedGroupId == group['id']) _selectedGroupId = null;
               Navigator.pop(context);
             }, 
             child: const Text('Delete', style: TextStyle(color: Colors.redAccent))
