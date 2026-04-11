@@ -43,7 +43,6 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 
   void _selectDate(DateTime date) {
     setState(() => _selectedDate = date);
-    // Always load from DB for this date (caches in state if already loaded)
     ref.read(routineProvider.notifier).loadRoutine(date);
   }
 
@@ -55,6 +54,13 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leadingWidth: 52,
+        // ── Calendar button on the LEFT of the date ──────────────────────
+        leading: IconButton(
+          icon: const Icon(Icons.calendar_month, color: AppColors.olive, size: 22),
+          tooltip: 'View Full Calendar',
+          onPressed: _showFullCalendar,
+        ),
         title: GestureDetector(
           onTap: _showFullCalendar,
           child: Row(
@@ -65,15 +71,13 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down,
-                  color: AppColors.olive, size: 20),
+              const Icon(Icons.arrow_drop_down, color: AppColors.olive, size: 20),
             ],
           ),
         ),
         actions: [
           TextButton.icon(
-            icon:
-            const Icon(Icons.auto_awesome, color: AppColors.olive, size: 18),
+            icon: const Icon(Icons.auto_awesome, color: AppColors.olive, size: 18),
             label: const Text(
               'Auto Plan',
               style: TextStyle(
@@ -94,9 +98,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       body: Column(
         children: [
           _buildDayStrip(),
-          Expanded(
-            child: _buildHourlyView(entriesForDate),
-          ),
+          Expanded(child: _buildHourlyView(entriesForDate)),
         ],
       ),
     );
@@ -104,90 +106,57 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 
   Widget _buildDayStrip() {
     return Container(
-      height: 90,
+      height: 80,
       color: AppColors.primary,
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _dayScrollController,
-              scrollDirection: Axis.horizontal,
-              itemCount: 60,
-              itemBuilder: (context, index) {
-                final date = DateTime.now()
-                    .subtract(const Duration(days: 30))
-                    .add(Duration(days: index));
-                final isSelected =
-                DateUtils.isSameDay(date, _selectedDate);
-                final isToday =
-                DateUtils.isSameDay(date, DateTime.now());
+      child: ListView.builder(
+        controller: _dayScrollController,
+        scrollDirection: Axis.horizontal,
+        itemCount: 60,
+        itemBuilder: (context, index) {
+          final date = DateTime.now()
+              .subtract(const Duration(days: 30))
+              .add(Duration(days: index));
+          final isSelected = DateUtils.isSameDay(date, _selectedDate);
+          final isToday = DateUtils.isSameDay(date, DateTime.now());
 
-                return GestureDetector(
-                  onTap: () => _selectDate(date),
-                  child: Container(
-                    width: 65,
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.olive
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isToday && !isSelected
-                            ? AppColors.olive
-                            : Colors.white10,
-                        width: isToday && !isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('E')
-                              .format(date)
-                              .toUpperCase(),
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.black
-                                : Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          DateFormat('d').format(date),
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.black
-                                : AppColors.beige,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          GestureDetector(
-            onTap: _showFullCalendar,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                'View Full Calendar',
-                style: TextStyle(
-                  color: AppColors.olive.withOpacity(0.7),
-                  fontSize: 10,
-                  decoration: TextDecoration.underline,
+          return GestureDetector(
+            onTap: () => _selectDate(date),
+            child: Container(
+              width: 65,
+              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.olive : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isToday && !isSelected ? AppColors.olive : Colors.white10,
+                  width: isToday && !isSelected ? 2 : 1,
                 ),
               ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('E').format(date).toUpperCase(),
+                    style: TextStyle(
+                      color: isSelected ? Colors.black : Colors.white38,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('d').format(date),
+                    style: TextStyle(
+                      color: isSelected ? Colors.black : AppColors.beige,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -207,9 +176,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             constraints: const BoxConstraints(minHeight: 60),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                    color: AppColors.beige.withOpacity(0.05)),
-              ),
+                  bottom: BorderSide(color: AppColors.beige.withOpacity(0.05))),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,10 +188,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                     child: Text(
                       timeStr,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                      ),
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
                     ),
                   ),
                 ),
@@ -232,23 +196,18 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ...entriesAtHour.map(
-                            (entry) => _RoutineItemTile(
-                          entry: entry,
-                          onEdit: () => _editEntry(entry),
-                        ),
-                      ),
+                      ...entriesAtHour.map((entry) => _RoutineItemTile(
+                        entry: entry,
+                        onEdit: () => _editEntry(entry),
+                      )),
                       if (entriesAtHour.isEmpty)
-                        Container(
-                            height: 60, color: Colors.transparent),
+                        Container(height: 60, color: Colors.transparent),
                       if (entriesAtHour.isNotEmpty)
                         Container(
                           height: 28,
                           color: Colors.transparent,
                           child: const Center(
-                            child: Icon(Icons.add,
-                                color: Colors.white10, size: 16),
-                          ),
+                              child: Icon(Icons.add, color: Colors.white10, size: 16)),
                         ),
                     ],
                   ),
@@ -265,8 +224,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     final date = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate:
-      DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -301,32 +259,24 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         padding: const EdgeInsets.all(20.0),
         decoration: const BoxDecoration(
           color: AppColors.background,
-          borderRadius:
-          BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Plan Meal At $timeStr'.toTitleCase(),
-              style: AppTextStyles.heading2,
-            ),
+            Text('Plan Meal At $timeStr'.toTitleCase(), style: AppTextStyles.heading2),
             const SizedBox(height: 20),
             ListTile(
-              leading:
-              const Icon(Icons.book, color: AppColors.olive),
-              title: const Text('Add From Recipes',
-                  style: TextStyle(color: AppColors.beige)),
+              leading: const Icon(Icons.book, color: AppColors.olive),
+              title: const Text('Add From Recipes', style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showRecipePicker(timeStr);
               },
             ),
             ListTile(
-              leading:
-              const Icon(Icons.edit, color: AppColors.olive),
-              title: const Text('Manual Entry',
-                  style: TextStyle(color: AppColors.beige)),
+              leading: const Icon(Icons.edit, color: AppColors.olive),
+              title: const Text('Manual Entry', style: TextStyle(color: AppColors.beige)),
               onTap: () {
                 Navigator.pop(context);
                 _showManualEntryDialog(timeStr);
@@ -345,14 +295,12 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       context: context,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-          BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('Select Recipe'.toTitleCase(),
-                style: AppTextStyles.heading2),
+            child: Text('Select Recipe'.toTitleCase(), style: AppTextStyles.heading2),
           ),
           Expanded(
             child: recipes.isEmpty
@@ -365,17 +313,14 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 final r = recipes[index];
                 return ListTile(
                   title: Text(r.name.toTitleCase(),
-                      style: const TextStyle(
-                          color: Colors.white)),
+                      style: const TextStyle(color: Colors.white)),
                   subtitle: r.calories > 0
                       ? Text('${r.calories.toInt()} Kcal',
                       style: AppTextStyles.caption)
                       : null,
                   onTap: () {
                     final entry = MealRoutine(
-                      id: DateTime.now()
-                          .millisecondsSinceEpoch
-                          .toString(),
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
                       date: _selectedDate,
                       mealType: MealType.Lunch,
                       recipeId: r.id,
@@ -386,9 +331,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       carbs: r.carbs,
                       fat: r.fat,
                     );
-                    ref
-                        .read(routineProvider.notifier)
-                        .addEntry(entry);
+                    ref.read(routineProvider.notifier).addEntry(entry);
                     Navigator.pop(context);
                   },
                 );
@@ -400,19 +343,17 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     );
   }
 
-  void _showManualEntryDialog(String time,
-      {MealRoutine? editEntry}) {
+  void _showManualEntryDialog(String time, {MealRoutine? editEntry}) {
     final isEditing = editEntry != null;
-    final controller =
-    TextEditingController(text: editEntry?.manualEntry ?? '');
+    final controller = TextEditingController(text: editEntry?.manualEntry ?? '');
     final calController = TextEditingController(
         text: editEntry?.calories?.toStringAsFixed(0) ?? '');
     final proteinController = TextEditingController(
         text: editEntry?.protein?.toStringAsFixed(0) ?? '');
     final carbsController = TextEditingController(
         text: editEntry?.carbs?.toStringAsFixed(0) ?? '');
-    final fatController = TextEditingController(
-        text: editEntry?.fat?.toStringAsFixed(0) ?? '');
+    final fatController =
+    TextEditingController(text: editEntry?.fat?.toStringAsFixed(0) ?? '');
     MealType selectedType = editEntry?.mealType ?? MealType.Lunch;
 
     showDialog(
@@ -421,9 +362,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.card,
           title: Text(
-            isEditing
-                ? 'Edit Meal'
-                : 'Meal At $time'.toTitleCase(),
+            isEditing ? 'Edit Meal' : 'Meal At $time'.toTitleCase(),
             style: const TextStyle(color: AppColors.beige),
           ),
           content: SingleChildScrollView(
@@ -451,11 +390,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       .map((t) => DropdownMenuItem(
                       value: t,
                       child: Text(t.name.toTitleCase(),
-                          style: const TextStyle(
-                              color: Colors.white))))
+                          style: const TextStyle(color: Colors.white))))
                       .toList(),
-                  onChanged: (v) => setDialogState(
-                          () => selectedType = v ?? MealType.Lunch),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedType = v ?? MealType.Lunch),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -474,8 +412,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
                           labelText: 'Protein (g)',
-                          labelStyle:
-                          TextStyle(color: AppColors.olive)),
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -486,8 +423,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
                           labelText: 'Carbs (g)',
-                          labelStyle:
-                          TextStyle(color: AppColors.olive)),
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -498,8 +434,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
                           labelText: 'Fat (g)',
-                          labelStyle:
-                          TextStyle(color: AppColors.olive)),
+                          labelStyle: TextStyle(color: AppColors.olive)),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -511,9 +446,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             if (isEditing)
               TextButton(
                 onPressed: () {
-                  ref
-                      .read(routineProvider.notifier)
-                      .removeEntry(editEntry);
+                  ref.read(routineProvider.notifier).removeEntry(editEntry);
                   Navigator.pop(context);
                 },
                 child: const Text('Delete',
@@ -524,39 +457,27 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.olive),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
               onPressed: () {
                 if (controller.text.isNotEmpty) {
                   final entry = MealRoutine(
                     id: isEditing
                         ? editEntry.id
-                        : DateTime.now()
-                        .millisecondsSinceEpoch
-                        .toString(),
-                    date: isEditing
-                        ? editEntry.date
-                        : _selectedDate,
+                        : DateTime.now().millisecondsSinceEpoch.toString(),
+                    date: isEditing ? editEntry.date : _selectedDate,
                     mealType: selectedType,
                     manualEntry: controller.text,
                     time: time,
-                    isEaten:
-                    isEditing ? editEntry.isEaten : false,
-                    calories:
-                    double.tryParse(calController.text),
-                    protein:
-                    double.tryParse(proteinController.text),
+                    isEaten: isEditing ? editEntry.isEaten : false,
+                    calories: double.tryParse(calController.text),
+                    protein: double.tryParse(proteinController.text),
                     carbs: double.tryParse(carbsController.text),
                     fat: double.tryParse(fatController.text),
                   );
                   if (isEditing) {
-                    ref
-                        .read(routineProvider.notifier)
-                        .updateEntry(entry);
+                    ref.read(routineProvider.notifier).updateEntry(entry);
                   } else {
-                    ref
-                        .read(routineProvider.notifier)
-                        .addEntry(entry);
+                    ref.read(routineProvider.notifier).addEntry(entry);
                   }
                 }
                 Navigator.pop(context);
@@ -576,8 +497,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
 class _RoutineItemTile extends ConsumerWidget {
   final MealRoutine entry;
   final VoidCallback onEdit;
-  const _RoutineItemTile(
-      {required this.entry, required this.onEdit});
+  const _RoutineItemTile({required this.entry, required this.onEdit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -585,17 +505,14 @@ class _RoutineItemTile extends ConsumerWidget {
       onLongPress: onEdit,
       child: Container(
         margin: const EdgeInsets.fromLTRB(4, 4, 8, 0),
-        padding:
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: entry.isEaten
               ? AppColors.olive.withOpacity(0.12)
               : AppColors.card,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color:
-            entry.isEaten ? AppColors.olive : Colors.white10,
-          ),
+              color: entry.isEaten ? AppColors.olive : Colors.white10),
         ),
         child: Row(
           children: [
@@ -605,11 +522,9 @@ class _RoutineItemTile extends ConsumerWidget {
               child: Checkbox(
                 value: entry.isEaten,
                 activeColor: AppColors.olive,
-                materialTapTargetSize:
-                MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) => ref
-                    .read(routineProvider.notifier)
-                    .toggleEaten(entry),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (_) =>
+                    ref.read(routineProvider.notifier).toggleEaten(entry),
               ),
             ),
             const SizedBox(width: 8),
@@ -620,18 +535,14 @@ class _RoutineItemTile extends ConsumerWidget {
                   Text(
                     (entry.manualEntry ?? 'Meal').toTitleCase(),
                     style: TextStyle(
-                      color: entry.isEaten
-                          ? AppColors.olive
-                          : Colors.white,
+                      color: entry.isEaten ? AppColors.olive : Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      decoration: entry.isEaten
-                          ? TextDecoration.lineThrough
-                          : null,
+                      decoration:
+                      entry.isEaten ? TextDecoration.lineThrough : null,
                     ),
                   ),
-                  if (entry.calories != null &&
-                      entry.calories! > 0)
+                  if (entry.calories != null && entry.calories! > 0)
                     Text('${entry.calories!.toInt()} Kcal',
                         style: AppTextStyles.caption),
                 ],
@@ -642,9 +553,8 @@ class _RoutineItemTile extends ConsumerWidget {
                   size: 16, color: Colors.white24),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              onPressed: () => ref
-                  .read(routineProvider.notifier)
-                  .removeEntry(entry),
+              onPressed: () =>
+                  ref.read(routineProvider.notifier).removeEntry(entry),
             ),
           ],
         ),

@@ -4,27 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../utils/constants.dart';
+import '../utils/diet_constants.dart';
 import '../providers/health_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static const List<String> _availableAllergens = [
-    'gluten', 'milk', 'eggs', 'nuts', 'peanuts', 'sesame',
-    'soybeans', 'fish', 'shellfish', 'celery', 'mustard',
-    'lupin', 'molluscs', 'sulphites',
-  ];
-
-  static const List<String> _dietaryPrefs = [
-    'vegan', 'vegetarian', 'paleo', 'keto', 'mediterranean', 'low-carb',
-  ];
-
-  static const List<String> _religiousDiets = [
-    'halal', 'kosher', 'christian lent', 'orthodox lent',
-    'hindu vegetarian', 'jain', 'buddhist vegetarian',
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,6 +72,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
+          // ── Dietary Preferences ──────────────────────────────────────────
           const _SettingsHeader(title: 'Dietary Preferences'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -100,12 +87,17 @@ class SettingsScreen extends ConsumerWidget {
                   const Expanded(child: Text('Dietary Labels', style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 13))),
                   if (userDietary.isNotEmpty) Text('${userDietary.length} active', style: const TextStyle(color: AppColors.olive, fontSize: 11)),
                 ]),
+                const SizedBox(height: 6),
+                const Text(
+                  'Products containing forbidden ingredients for your selected diet will be flagged during scanning.',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
                 const SizedBox(height: 12),
                 if (userDietary.isNotEmpty) _ActiveDietBanner(labels: userDietary, color: AppColors.olive, icon: Icons.eco),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6, runSpacing: 6,
-                  children: _dietaryPrefs.map((pref) {
+                  children: allDietaryPrefs.map((pref) {
                     final sel = userDietary.contains(pref);
                     return FilterChip(
                       label: Text(pref.toTitleCase(), style: TextStyle(fontSize: 12, color: sel ? Colors.black : Colors.white70, fontWeight: sel ? FontWeight.bold : FontWeight.normal)),
@@ -126,9 +118,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
+          // ── Custom Diet ──────────────────────────────────────────────────
           const _SettingsHeader(title: 'Custom Diet Filter'),
           const _CustomDietSection(),
 
+          // ── Religious Diet ───────────────────────────────────────────────
           const _SettingsHeader(title: 'Religious Diet'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -142,10 +136,15 @@ class SettingsScreen extends ConsumerWidget {
                   SizedBox(width: 8),
                   Text('Religious Rules', style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 13)),
                 ]),
+                const SizedBox(height: 6),
+                const Text(
+                  'Includes gelatin, alcohol, non-halal slaughter, shellfish, pork, and more.',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6, runSpacing: 6,
-                  children: _religiousDiets.map((pref) {
+                  children: allReligiousDiets.map((pref) {
                     final sel = userReligious.contains(pref);
                     return FilterChip(
                       label: Text(pref.toTitleCase(), style: TextStyle(fontSize: 12, color: sel ? Colors.black : Colors.white70, fontWeight: sel ? FontWeight.bold : FontWeight.normal)),
@@ -166,6 +165,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
+          // ── Allergies ────────────────────────────────────────────────────
           const _SettingsHeader(title: 'Allergies'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -179,10 +179,15 @@ class SettingsScreen extends ConsumerWidget {
                   SizedBox(width: 8),
                   Text('Allergy Filters', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                 ]),
+                const SizedBox(height: 6),
+                const Text(
+                  'All EU-14 major allergens covered with comprehensive ingredient matching.',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6, runSpacing: 6,
-                  children: _availableAllergens.map((a) {
+                  children: allAllergens.map((a) {
                     final sel = userAllergies.contains(a);
                     return FilterChip(
                       label: Text(a.toTitleCase(), style: TextStyle(fontSize: 12, color: sel ? Colors.white : Colors.white70, fontWeight: sel ? FontWeight.bold : FontWeight.normal)),
@@ -274,6 +279,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _CustomDietSection extends StatefulWidget {
   const _CustomDietSection();

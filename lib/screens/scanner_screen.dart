@@ -8,47 +8,8 @@ import '../providers/pantry_provider.dart';
 import '../providers/scan_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/constants.dart';
+import '../utils/diet_constants.dart';
 import 'dart:convert';
-
-// Allergen keyword mapping
-const Map<String, List<String>> _allergenKeywords = {
-  'gluten': ['gluten', 'wheat', 'barley', 'rye', 'oat', 'spelt', 'kamut', 'farro', 'semolina', 'farina', 'einkorn', 'durum'],
-  'milk': ['milk', 'dairy', 'lactose', 'cheese', 'butter', 'cream', 'whey', 'casein', 'fromage'],
-  'eggs': ['egg', 'ovum', 'albumin', 'lysozyme', 'mayonnaise'],
-  'nuts': ['nuts', 'almond', 'cashew', 'walnut', 'pecan', 'pistachio', 'macadamia', 'hazelnut', 'brazil nut'],
-  'peanuts': ['peanut', 'groundnut', 'arachide'],
-  'sesame': ['sesame', 'tahini', 'sesamum'],
-  'soybeans': ['soy', 'soya', 'tofu', 'tempeh', 'miso', 'edamame'],
-  'fish': ['fish', 'cod', 'salmon', 'tuna', 'halibut', 'anchovy', 'sardine', 'herring', 'trout', 'bass'],
-  'shellfish': ['shellfish', 'shrimp', 'crab', 'lobster', 'prawn', 'crayfish', 'scallop', 'oyster', 'mussel', 'clam'],
-  'celery': ['celery', 'celeriac'],
-  'mustard': ['mustard'],
-  'lupin': ['lupin', 'lupine'],
-  'molluscs': ['mollusc', 'mollusk', 'squid', 'octopus', 'snail', 'scallop'],
-  'sulphites': ['sulphite', 'sulfite', 'sulphur dioxide', 'so2'],
-};
-
-// Dietary restriction keywords
-const Map<String, List<String>> _dietaryViolationKeywords = {
-  'vegan': ['meat', 'beef', 'pork', 'chicken', 'turkey', 'fish', 'seafood', 'milk', 'dairy', 'egg', 'cheese', 'butter', 'cream', 'honey', 'gelatin', 'lard'],
-  'vegetarian': ['meat', 'beef', 'pork', 'chicken', 'turkey', 'fish', 'seafood', 'gelatin', 'lard', 'rennet'],
-  'paleo': ['grain', 'wheat', 'rice', 'corn', 'oat', 'legume', 'bean', 'lentil', 'soy', 'dairy', 'sugar', 'processed'],
-  'keto': ['sugar', 'glucose', 'fructose', 'corn syrup', 'maltose', 'wheat', 'rice', 'corn', 'potato', 'bread'],
-  'mediterranean': ['trans fat', 'hydrogenated', 'artificial', 'processed meat', 'red meat'],
-  'low-carb': ['sugar', 'glucose', 'fructose', 'corn syrup', 'wheat', 'rice', 'starch', 'bread', 'pasta'],
-};
-
-const Map<String, List<String>> _religiousViolationKeywords = {
-  'halal': ['pork', 'pig', 'lard', 'bacon', 'ham', 'alcohol', 'wine', 'beer', 'spirits'],
-  'kosher': ['pork', 'pig', 'lard', 'bacon', 'ham', 'shellfish', 'shrimp', 'crab', 'lobster', 'rabbit'],
-  'christian lent': ['meat', 'beef', 'pork', 'chicken', 'turkey'],
-  'orthodox lent': ['meat', 'dairy', 'egg', 'fish', 'oil', 'wine'],
-  'hindu vegetarian': ['beef', 'veal', 'meat', 'pork', 'chicken', 'egg'],
-  'jain': ['meat', 'fish', 'egg', 'onion', 'garlic', 'potato', 'carrot', 'beet'],
-  'buddhist vegetarian': ['meat', 'fish', 'egg', 'onion', 'garlic', 'leek', 'chive'],
-};
-
-// ── The scan state lives here so _showProductDialog can use ref.watch ─────────
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
@@ -64,14 +25,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   void _onDetect(BarcodeCapture capture) async {
     if (_isProcessing || _showHistory) return;
-
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
       final String? code = barcodes.first.rawValue;
       if (code != null) {
         setState(() => _isProcessing = true);
         final product = await _apiService.fetchProduct(code);
-
         if (mounted) {
           if (product != null) {
             ref.read(scanHistoryProvider.notifier).addToHistory(product);
@@ -87,14 +46,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     }
   }
 
-  // ── Detection helpers (static so _ProductDialog can also use them) ──────────
+  // ── Detection helpers ──────────────────────────────────────────────────────
 
   static List<String> detectAllergens(FoodItem product, List<String> userAllergies) {
     final searchText = _buildSearchText(product);
     final detected = <String>[];
     for (final userAllergen in userAllergies) {
       final allergenKey = userAllergen.toLowerCase();
-      final keywords = _allergenKeywords[allergenKey] ?? [allergenKey];
+      final keywords = allergenKeywords[allergenKey] ?? [allergenKey];
       if (keywords.any((keyword) => searchText.contains(keyword))) {
         detected.add(userAllergen);
       }
@@ -109,21 +68,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ) {
     final searchText = _buildSearchText(product);
     final violations = <String>[];
-
     for (final pref in dietaryPrefs) {
-      final keywords = _dietaryViolationKeywords[pref.toLowerCase()] ?? [];
+      final keywords = dietaryViolationKeywords[pref.toLowerCase()] ?? [];
       if (keywords.any((k) => searchText.contains(k))) {
         violations.add('Not ${pref.toTitleCase()}');
       }
     }
-
     for (final pref in religiousPrefs) {
-      final keywords = _religiousViolationKeywords[pref.toLowerCase()] ?? [];
+      final keywords = religiousViolationKeywords[pref.toLowerCase()] ?? [];
       if (keywords.any((k) => searchText.contains(k))) {
         violations.add('Violates ${pref.toTitleCase()}');
       }
     }
-
     return violations;
   }
 
@@ -133,21 +89,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ) {
     final searchText = _buildSearchText(product);
     final violations = <String>[];
-
     for (final diet in customDiets) {
       final name = diet['name'] as String? ?? 'Custom Diet';
       final raw = diet['violationKeywords'];
       List<String> keywords = [];
       if (raw is String) {
-        try {
-          keywords = List<String>.from(jsonDecode(raw));
-        } catch (_) {}
+        try { keywords = List<String>.from(jsonDecode(raw)); } catch (_) {}
       }
       if (keywords.any((k) => searchText.contains(k.toLowerCase()))) {
         violations.add('Violates $name');
       }
     }
-
     return violations;
   }
 
@@ -159,8 +111,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       ...product.allergens,
     ].join(' ').toLowerCase();
   }
-
-  // ── Product dialog ─────────────────────────────────────────────────────────
 
   void _showProductDialog(FoodItem product) {
     showModalBottomSheet(
@@ -176,6 +126,30 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     });
   }
 
+  Future<void> _clearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Clear Scan History?'),
+        content: const Text('This will delete all your scan history. This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final db = await DatabaseService.instance.database;
+      await db.delete('scan_history');
+      ref.read(scanHistoryProvider.notifier).loadHistory();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(scanHistoryProvider);
@@ -184,16 +158,21 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       appBar: AppBar(
         title: const Text('Scan Food'),
         actions: [
+          if (_showHistory && history.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+              onPressed: _clearHistory,
+              tooltip: 'Clear History',
+            ),
           IconButton(
             icon: Icon(_showHistory ? Icons.camera_alt : Icons.history),
             onPressed: () => setState(() => _showHistory = !_showHistory),
-          )
+          ),
         ],
       ),
       body: Stack(
         children: [
-          if (!_showHistory)
-            MobileScanner(onDetect: _onDetect),
+          if (!_showHistory) MobileScanner(onDetect: _onDetect),
           if (!_showHistory)
             Center(
               child: Container(
@@ -224,14 +203,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       leading: item.imageUrl != null
                           ? Image.network(item.imageUrl!,
                           width: 40, height: 40, fit: BoxFit.cover)
-                          : const Icon(Icons.fastfood,
-                          color: AppColors.olive),
+                          : const Icon(Icons.fastfood, color: AppColors.olive),
                       title: Text(item.name,
                           style: const TextStyle(color: Colors.white)),
                       subtitle: Text(item.brand ?? '',
                           style: AppTextStyles.caption),
-                      trailing: const Icon(Icons.chevron_right,
-                          color: Colors.white24),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.chevron_right, color: Colors.white24),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () async {
+                              final db = await DatabaseService.instance.database;
+                              await db.delete('scan_history', where: 'id = ?', whereArgs: [item.id ?? item.barcode]);
+                              ref.read(scanHistoryProvider.notifier).loadHistory();
+                            },
+                          ),
+                        ],
+                      ),
                       onTap: () => _showProductDialog(item),
                     ),
                   );
@@ -251,7 +243,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 }
 
-// ── Separate ConsumerWidget so it can use ref.watch for live settings ──────────
+// ── Product Dialog ─────────────────────────────────────────────────────────────
 
 class _ProductDialog extends ConsumerStatefulWidget {
   final FoodItem product;
@@ -296,7 +288,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // ← ref.watch ensures we get the LATEST settings (not a stale snapshot)
     final userSettings = ref.watch(settingsProvider);
     final userAllergies = List<String>.from(userSettings['allergies'] ?? []);
     final userDietary = List<String>.from(userSettings['dietary_prefs'] ?? []);
@@ -307,8 +298,7 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
     final dietaryViolations = _ScannerScreenState.detectDietaryViolations(
         widget.product, userDietary, userReligious);
     final customViolations = _customDietsLoaded
-        ? _ScannerScreenState.detectCustomDietViolations(
-        widget.product, _customDiets)
+        ? _ScannerScreenState.detectCustomDietViolations(widget.product, _customDiets)
         : <String>[];
 
     final hasWarning = detectedAllergies.isNotEmpty ||
@@ -334,23 +324,19 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                 ),
               const SizedBox(height: 10),
               Text(widget.product.name,
-                  style: AppTextStyles.heading1,
-                  textAlign: TextAlign.center),
+                  style: AppTextStyles.heading1, textAlign: TextAlign.center),
               Text(widget.product.brand ?? '', style: AppTextStyles.caption),
 
-              // ── ALLERGY WARNING ──────────────────────────────────────────
               if (detectedAllergies.isNotEmpty) ...[
                 const SizedBox(height: 15),
                 _warningBanner(
                   icon: Icons.warning_amber_rounded,
                   color: AppColors.danger,
                   title: 'ALLERGY WARNING',
-                  message:
-                  'Contains: ${detectedAllergies.map((a) => a.toUpperCase()).join(", ")}',
+                  message: 'Contains: ${detectedAllergies.map((a) => a.toUpperCase()).join(", ")}',
                 ),
               ],
 
-              // ── DIETARY / RELIGIOUS WARNING ──────────────────────────────
               if (dietaryViolations.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 _warningBanner(
@@ -361,7 +347,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                 ),
               ],
 
-              // ── CUSTOM DIET WARNING ──────────────────────────────────────
               if (customViolations.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 _warningBanner(
@@ -372,7 +357,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                 ),
               ],
 
-              // ── ALL CLEAR ────────────────────────────────────────────────
               if (!hasWarning && _customDietsLoaded) ...[
                 const SizedBox(height: 15),
                 Container(
@@ -417,7 +401,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
 
               const Divider(color: Colors.white12, height: 30),
 
-              // ── Nutri-Score ──────────────────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -442,7 +425,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
               ),
               const SizedBox(height: 10),
 
-              // Main macros
               Container(
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 12),
@@ -453,28 +435,19 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _macroHighlight(
-                        'Calories', '${widget.product.calories.toInt()}', 'kcal'),
-                    _macroHighlight('Protein',
-                        '${widget.product.protein.toStringAsFixed(1)}', 'g'),
-                    _macroHighlight(
-                        'Carbs', '${widget.product.carbs.toStringAsFixed(1)}', 'g'),
-                    _macroHighlight(
-                        'Fat', '${widget.product.fat.toStringAsFixed(1)}', 'g'),
+                    _macroHighlight('Calories', '${widget.product.calories.toInt()}', 'kcal'),
+                    _macroHighlight('Protein', '${widget.product.protein.toStringAsFixed(1)}', 'g'),
+                    _macroHighlight('Carbs', '${widget.product.carbs.toStringAsFixed(1)}', 'g'),
+                    _macroHighlight('Fat', '${widget.product.fat.toStringAsFixed(1)}', 'g'),
                   ],
                 ),
               ),
 
-              _buildNutrientRow(
-                  'Sugars', '${widget.product.sugar.toStringAsFixed(1)} g'),
-              _buildNutrientRow('Saturated Fat',
-                  '${widget.product.saturatedFat.toStringAsFixed(1)} g'),
-              _buildNutrientRow(
-                  'Fiber', '${widget.product.fiber.toStringAsFixed(1)} g'),
-              _buildNutrientRow(
-                  'Sodium', '${widget.product.sodium.toStringAsFixed(3)} g'),
-              _buildNutrientRow('Cholesterol',
-                  '${widget.product.cholesterol.toStringAsFixed(1)} mg'),
+              _buildNutrientRow('Sugars', '${widget.product.sugar.toStringAsFixed(1)} g'),
+              _buildNutrientRow('Saturated Fat', '${widget.product.saturatedFat.toStringAsFixed(1)} g'),
+              _buildNutrientRow('Fiber', '${widget.product.fiber.toStringAsFixed(1)} g'),
+              _buildNutrientRow('Sodium', '${widget.product.sodium.toStringAsFixed(3)} g'),
+              _buildNutrientRow('Cholesterol', '${widget.product.cholesterol.toStringAsFixed(1)} mg'),
 
               if (widget.product.allergens.isNotEmpty) ...[
                 const Divider(color: Colors.white12, height: 20),
@@ -484,8 +457,7 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                     spacing: 6,
                     children: [
                       const Text('Allergens: ',
-                          style:
-                          TextStyle(color: Colors.white70, fontSize: 12)),
+                          style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ...widget.product.allergens.map((a) => Chip(
                         label: Text(a,
                             style: const TextStyle(
@@ -515,7 +487,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
 
               const Divider(color: Colors.white12, height: 30),
 
-              // ── Storage location ─────────────────────────────────────────
               DropdownButtonFormField<StorageLocation>(
                 value: _selectedLocation,
                 decoration: const InputDecoration(
@@ -531,11 +502,9 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                       child: Text(loc.name.toUpperCase(),
                           style: const TextStyle(color: Colors.white)));
                 }).toList(),
-                onChanged: (val) =>
-                    setState(() => _selectedLocation = val!),
+                onChanged: (val) => setState(() => _selectedLocation = val!),
               ),
 
-              // ── Expiry date ──────────────────────────────────────────────
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
@@ -544,15 +513,13 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                       : 'Expires: ${_selectedExpiry!.toLocal().toString().split(' ')[0]}',
                   style: const TextStyle(color: Colors.white),
                 ),
-                trailing:
-                const Icon(Icons.calendar_today, color: AppColors.olive),
+                trailing: const Icon(Icons.calendar_today, color: AppColors.olive),
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
                     initialDate: DateTime.now().add(const Duration(days: 7)),
                     firstDate: DateTime.now(),
-                    lastDate:
-                    DateTime.now().add(const Duration(days: 365 * 2)),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );
                   if (date != null) setState(() => _selectedExpiry = date);
                 },
@@ -560,7 +527,6 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
 
               const SizedBox(height: 20),
 
-              // ── Add to kitchen ───────────────────────────────────────────
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.olive,
@@ -654,8 +620,7 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
                 fontWeight: FontWeight.bold,
                 fontSize: 18)),
         Text(unit, style: const TextStyle(color: Colors.white54, fontSize: 10)),
-        Text(label,
-            style: const TextStyle(color: AppColors.beige, fontSize: 12)),
+        Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 12)),
       ],
     );
   }
@@ -666,9 +631,7 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style:
-              const TextStyle(color: AppColors.beige, fontSize: 14)),
+          Text(label, style: const TextStyle(color: AppColors.beige, fontSize: 14)),
           Text(value,
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.bold)),

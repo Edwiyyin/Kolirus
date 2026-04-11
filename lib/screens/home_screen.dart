@@ -45,8 +45,7 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Hello ${userName.toString().toTitleCase()},',
-                      style: const TextStyle(
-                          color: AppColors.textLight, fontSize: 16)),
+                      style: const TextStyle(color: AppColors.textLight, fontSize: 16)),
                   const Text('Ready To Fuel?', style: AppTextStyles.heading1),
                 ],
               ),
@@ -54,12 +53,10 @@ class HomeScreen extends ConsumerWidget {
                 onPressed: () => _showLogMealBottomSheet(context, ref),
                 icon: const Icon(Icons.add, color: Colors.black),
                 label: const Text('Log Meal',
-                    style: TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.olive,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],
@@ -80,8 +77,7 @@ class HomeScreen extends ConsumerWidget {
                       value: (calories / goal).clamp(0, 1),
                       strokeWidth: 12,
                       backgroundColor: AppColors.card,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.olive),
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.olive),
                     ),
                   ),
                   Column(
@@ -93,12 +89,9 @@ class HomeScreen extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                               color: AppColors.beige)),
                       const Text('Kcal',
-                          style: TextStyle(
-                              color: AppColors.olive,
-                              fontWeight: FontWeight.w600)),
+                          style: TextStyle(color: AppColors.olive, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('Of ${goal.toInt()}',
-                          style: AppTextStyles.caption),
+                      Text('Of ${goal.toInt()}', style: AppTextStyles.caption),
                     ],
                   ),
                 ],
@@ -132,10 +125,10 @@ class HomeScreen extends ConsumerWidget {
           _WaterWidget(water: water, ref: ref),
           const SizedBox(height: 28),
 
-          // Streaks
+          // Streaks — now 5 streaks in 2 rows
           const Text('Streaks', style: AppTextStyles.heading2),
           const SizedBox(height: 12),
-          const _StreaksRow(),
+          const _StreaksSection(),
           const SizedBox(height: 28),
 
           // Recommended recipes
@@ -158,8 +151,7 @@ class HomeScreen extends ConsumerWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: logs.length,
-              itemBuilder: (context, index) =>
-                  _MealLogTile(log: logs[index]),
+              itemBuilder: (context, index) => _MealLogTile(log: logs[index]),
             ),
 
           const SizedBox(height: 100),
@@ -168,10 +160,8 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditGoalDialog(
-      BuildContext context, WidgetRef ref, double currentGoal) {
-    final ctrl =
-    TextEditingController(text: currentGoal.toInt().toString());
+  void _showEditGoalDialog(BuildContext context, WidgetRef ref, double currentGoal) {
+    final ctrl = TextEditingController(text: currentGoal.toInt().toString());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -184,16 +174,12 @@ class HomeScreen extends ConsumerWidget {
           decoration: const InputDecoration(suffixText: 'Kcal'),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               final val = double.tryParse(ctrl.text);
               if (val != null && val > 0) {
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateCalorieGoal(val);
+                ref.read(settingsProvider.notifier).updateCalorieGoal(val);
                 Navigator.pop(context);
               }
             },
@@ -216,6 +202,7 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+// ─── Water Widget ─────────────────────────────────────────────────────────────
 
 class _WaterWidget extends StatelessWidget {
   final WaterState water;
@@ -251,14 +238,12 @@ class _WaterWidget extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
                 value: water.progress,
                 backgroundColor: Colors.white10,
-                valueColor:
-                const AlwaysStoppedAnimation<Color>(AppColors.olive),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.olive),
                 minHeight: 8,
               ),
             ),
@@ -268,13 +253,11 @@ class _WaterWidget extends StatelessWidget {
               children: [
                 Text(
                   '${water.todayMl.toInt()} ml  ·  ${water.glasses} glasses',
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 13),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 Text(
                   '${water.goalMl.toInt()} ml goal',
-                  style: const TextStyle(
-                      color: AppColors.olive, fontSize: 12),
+                  style: const TextStyle(color: AppColors.olive, fontSize: 12),
                 ),
               ],
             ),
@@ -285,18 +268,21 @@ class _WaterWidget extends StatelessWidget {
   }
 }
 
+// ─── Streaks Section — 5 streaks in 2 rows ───────────────────────────────────
 
-class _StreaksRow extends StatefulWidget {
-  const _StreaksRow();
+class _StreaksSection extends StatefulWidget {
+  const _StreaksSection();
 
   @override
-  State<_StreaksRow> createState() => _StreaksRowState();
+  State<_StreaksSection> createState() => _StreaksSectionState();
 }
 
-class _StreaksRowState extends State<_StreaksRow> {
+class _StreaksSectionState extends State<_StreaksSection> {
   int _healthyStreak = 0;
   int _noWasteStreak = 0;
   int _cleanStreak = 0;
+  int _waterStreak = 0;
+  int _calorieStreak = 0;
   bool _loaded = false;
 
   @override
@@ -307,14 +293,20 @@ class _StreaksRowState extends State<_StreaksRow> {
 
   Future<void> _load() async {
     final s = StreakService.instance;
-    final h = await s.getHealthyFoodStreak();
-    final w = await s.getNoWasteStreak();
-    final c = await s.getAddictionCleanStreak();
+    final results = await Future.wait([
+      s.getHealthyFoodStreak(),
+      s.getNoWasteStreak(),
+      s.getAddictionCleanStreak(),
+      s.getWaterStreak(),
+      s.getCalorieStreak(),
+    ]);
     if (mounted) {
       setState(() {
-        _healthyStreak = h;
-        _noWasteStreak = w;
-        _cleanStreak = c;
+        _healthyStreak = results[0];
+        _noWasteStreak = results[1];
+        _cleanStreak = results[2];
+        _waterStreak = results[3];
+        _calorieStreak = results[4];
         _loaded = true;
       });
     }
@@ -326,30 +318,38 @@ class _StreaksRowState extends State<_StreaksRow> {
       return const SizedBox(
           height: 80,
           child: Center(
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: AppColors.olive)));
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.olive)));
     }
-    return Row(
+    return Column(
       children: [
-        _StreakCard(
-          icon: Icons.auto_awesome,
-          label: 'Healthy\nEating',
-          days: _healthyStreak,
-          color: AppColors.olive,
+        // Row 1: 3 streaks
+        Row(
+          children: [
+            _StreakCard(icon: Icons.auto_awesome, label: 'Healthy\nEating', days: _healthyStreak, color: AppColors.olive),
+            const SizedBox(width: 10),
+            _StreakCard(icon: Icons.eco, label: 'No Food\nWaste', days: _noWasteStreak, color: AppColors.olive.withOpacity(0.7)),
+            const SizedBox(width: 10),
+            _StreakCard(icon: Icons.shield, label: 'Addiction\nFree', days: _cleanStreak, color: AppColors.olive.withOpacity(0.4)),
+          ],
         ),
-        const SizedBox(width: 10),
-        _StreakCard(
-          icon: Icons.eco,
-          label: 'No Food\nWaste',
-          days: _noWasteStreak,
-          color: AppColors.olive.withOpacity(0.7),
-        ),
-        const SizedBox(width: 10),
-        _StreakCard(
-          icon: Icons.shield,
-          label: 'Addiction\nFree',
-          days: _cleanStreak,
-          color: AppColors.olive.withOpacity(0.4),
+        const SizedBox(height: 10),
+        // Row 2: 2 streaks
+        Row(
+          children: [
+            _StreakCard(
+              icon: Icons.water_drop,
+              label: 'Hydration\nGoal',
+              days: _waterStreak,
+              color: AppColors.olive,
+            ),
+            const SizedBox(width: 10),
+            _StreakCard(
+              icon: Icons.local_fire_department,
+              label: 'Calorie\nTarget',
+              days: _calorieStreak,
+              color: AppColors.olive,
+            ),
+          ],
         ),
       ],
     );
@@ -361,11 +361,12 @@ class _StreakCard extends StatelessWidget {
   final String label;
   final int days;
   final Color color;
-  const _StreakCard(
-      {required this.icon,
-        required this.label,
-        required this.days,
-        required this.color});
+  const _StreakCard({
+    required this.icon,
+    required this.label,
+    required this.days,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -383,23 +384,20 @@ class _StreakCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text('$days',
                 style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.beige)),
-            Text('days',
-                style: const TextStyle(
-                    color: Colors.white38, fontSize: 10)),
+                    fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.beige)),
+            const Text('days', style: TextStyle(color: Colors.white38, fontSize: 10)),
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.white54, fontSize: 10, height: 1.3)),
+                style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.3)),
           ],
         ),
       ),
     );
   }
 }
+
+// ─── Recommended Recipes ──────────────────────────────────────────────────────
 
 class _RecommendedRecipes extends StatelessWidget {
   final List<FoodItem> pantry;
@@ -416,16 +414,14 @@ class _RecommendedRecipes extends StatelessWidget {
     final recommended = recipes.map((recipe) {
       int matches = 0;
       for (var ing in recipe.ingredients) {
-        if (pantry.any((p) =>
-            p.name.toLowerCase().contains(ing.name.toLowerCase()))) {
+        if (pantry.any((p) => p.name.toLowerCase().contains(ing.name.toLowerCase()))) {
           matches++;
         }
       }
       return {'recipe': recipe, 'matches': matches};
     }).toList();
 
-    recommended
-        .sort((a, b) => (b['matches'] as int).compareTo(a['matches'] as int));
+    recommended.sort((a, b) => (b['matches'] as int).compareTo(a['matches'] as int));
 
     return SizedBox(
       height: 120,
@@ -451,8 +447,7 @@ class _RecommendedRecipes extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(recipe.name.toTitleCase(),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 const Spacer(),
@@ -465,13 +460,10 @@ class _RecommendedRecipes extends StatelessWidget {
                     Text('$matches/${recipe.ingredients.length} Items',
                         style: TextStyle(
                             fontSize: 10,
-                            color: matches > 0
-                                ? AppColors.olive
-                                : Colors.white24)),
+                            color: matches > 0 ? AppColors.olive : Colors.white24)),
                   ],
                 ),
-                Text(recipe.category.toTitleCase(),
-                    style: AppTextStyles.caption),
+                Text(recipe.category.toTitleCase(), style: AppTextStyles.caption),
               ],
             ),
           );
@@ -480,6 +472,8 @@ class _RecommendedRecipes extends StatelessWidget {
     );
   }
 }
+
+// ─── Log Meal Sheet ───────────────────────────────────────────────────────────
 
 class _LogMealSheet extends ConsumerStatefulWidget {
   final MealLog? editLog;
@@ -577,8 +571,7 @@ class _RecipeMealPicker extends ConsumerStatefulWidget {
   const _RecipeMealPicker({required this.recipes});
 
   @override
-  ConsumerState<_RecipeMealPicker> createState() =>
-      _RecipeMealPickerState();
+  ConsumerState<_RecipeMealPicker> createState() => _RecipeMealPickerState();
 }
 
 class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
@@ -593,12 +586,10 @@ class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
         children: [
           DropdownButtonFormField<Recipe>(
             value: _selected,
-            hint: const Text('Select a recipe',
-                style: TextStyle(color: Colors.white38)),
+            hint: const Text('Select a recipe', style: TextStyle(color: Colors.white38)),
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Recipe',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Recipe', labelStyle: TextStyle(color: AppColors.olive)),
             items: widget.recipes
                 .map((r) => DropdownMenuItem(
                 value: r,
@@ -612,8 +603,7 @@ class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
             value: _mealType,
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Meal type',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Meal type', labelStyle: TextStyle(color: AppColors.olive)),
             items: MealType.values
                 .map((t) => DropdownMenuItem(
                 value: t,
@@ -651,8 +641,7 @@ class _RecipeMealPickerState extends ConsumerState<_RecipeMealPicker> {
               }
             },
             child: const Text('Log Recipe',
-                style: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.bold)),
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -665,8 +654,7 @@ class _KitchenMealPicker extends ConsumerStatefulWidget {
   const _KitchenMealPicker({required this.pantry});
 
   @override
-  ConsumerState<_KitchenMealPicker> createState() =>
-      _KitchenMealPickerState();
+  ConsumerState<_KitchenMealPicker> createState() => _KitchenMealPickerState();
 }
 
 class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
@@ -686,8 +674,7 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
                 style: TextStyle(color: Colors.white38)),
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Food Item',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Food Item', labelStyle: TextStyle(color: AppColors.olive)),
             items: widget.pantry
                 .map((item) => DropdownMenuItem(
                 value: item,
@@ -701,8 +688,7 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
             value: _mealType,
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Meal Type',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Meal Type', labelStyle: TextStyle(color: AppColors.olive)),
             items: MealType.values
                 .map((t) => DropdownMenuItem(
                 value: t,
@@ -727,17 +713,13 @@ class _KitchenMealPickerState extends ConsumerState<_KitchenMealPicker> {
                 minimumSize: const Size(double.infinity, 50)),
             onPressed: () {
               if (_selected != null) {
-                final qty =
-                    double.tryParse(_quantityController.text) ?? 100;
-                ref
-                    .read(foodLogProvider.notifier)
-                    .addMeal(_selected!, qty, _mealType);
+                final qty = double.tryParse(_quantityController.text) ?? 100;
+                ref.read(foodLogProvider.notifier).addMeal(_selected!, qty, _mealType);
                 Navigator.pop(context);
               }
             },
             child: const Text('Log Meal',
-                style: TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.bold)),
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -750,8 +732,7 @@ class _ManualMealEntry extends ConsumerStatefulWidget {
   const _ManualMealEntry({this.editLog});
 
   @override
-  ConsumerState<_ManualMealEntry> createState() =>
-      _ManualMealEntryState();
+  ConsumerState<_ManualMealEntry> createState() => _ManualMealEntryState();
 }
 
 class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
@@ -767,20 +748,13 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.editLog?.foodName ?? '');
-    _calController = TextEditingController(
-        text: widget.editLog?.calories.toInt().toString() ?? '');
-    _proteinController = TextEditingController(
-        text: widget.editLog?.protein.toString() ?? '');
-    _carbsController = TextEditingController(
-        text: widget.editLog?.carbs.toString() ?? '');
-    _fatController =
-        TextEditingController(text: widget.editLog?.fat.toString() ?? '');
-    _fiberController = TextEditingController(
-        text: widget.editLog?.fiber.toString() ?? '');
-    _sodiumController = TextEditingController(
-        text: widget.editLog?.sodium.toString() ?? '');
+    _nameController = TextEditingController(text: widget.editLog?.foodName ?? '');
+    _calController = TextEditingController(text: widget.editLog?.calories.toInt().toString() ?? '');
+    _proteinController = TextEditingController(text: widget.editLog?.protein.toString() ?? '');
+    _carbsController = TextEditingController(text: widget.editLog?.carbs.toString() ?? '');
+    _fatController = TextEditingController(text: widget.editLog?.fat.toString() ?? '');
+    _fiberController = TextEditingController(text: widget.editLog?.fiber.toString() ?? '');
+    _sodiumController = TextEditingController(text: widget.editLog?.sodium.toString() ?? '');
     _mealType = widget.editLog?.type ?? MealType.Lunch;
   }
 
@@ -794,16 +768,14 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _nameController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Meal Name *',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Meal Name *', labelStyle: TextStyle(color: AppColors.olive)),
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<MealType>(
             value: _mealType,
             dropdownColor: AppColors.card,
             decoration: const InputDecoration(
-                labelText: 'Meal Type',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Meal Type', labelStyle: TextStyle(color: AppColors.olive)),
             items: MealType.values
                 .map((t) => DropdownMenuItem(
                 value: t,
@@ -817,8 +789,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _calController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Calories (Kcal)',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Calories (Kcal)', labelStyle: TextStyle(color: AppColors.olive)),
             keyboardType: TextInputType.number,
           ),
           Row(children: [
@@ -827,8 +798,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _proteinController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Protein (G)',
-                    labelStyle: TextStyle(color: AppColors.olive)),
+                    labelText: 'Protein (G)', labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -838,8 +808,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _carbsController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Carbs (G)',
-                    labelStyle: TextStyle(color: AppColors.olive)),
+                    labelText: 'Carbs (G)', labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -850,8 +819,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _fatController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Fat (G)',
-                    labelStyle: TextStyle(color: AppColors.olive)),
+                    labelText: 'Fat (G)', labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -861,8 +829,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
                 controller: _fiberController,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Fiber (G)',
-                    labelStyle: TextStyle(color: AppColors.olive)),
+                    labelText: 'Fiber (G)', labelStyle: TextStyle(color: AppColors.olive)),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -871,8 +838,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             controller: _sodiumController,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                labelText: 'Sodium (Mg)',
-                labelStyle: TextStyle(color: AppColors.olive)),
+                labelText: 'Sodium (Mg)', labelStyle: TextStyle(color: AppColors.olive)),
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 20),
@@ -907,8 +873,7 @@ class _ManualMealEntryState extends ConsumerState<_ManualMealEntry> {
             },
             child: Text(
                 widget.editLog != null ? 'Update Meal' : 'Log Meal',
-                style: const TextStyle(
-                    color: Colors.black, fontWeight: FontWeight.bold)),
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 20),
         ],
@@ -932,8 +897,7 @@ class _MealLogTile extends ConsumerWidget {
         color: Colors.redAccent,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) =>
-          ref.read(foodLogProvider.notifier).removeLog(log.id!),
+      onDismissed: (_) => ref.read(foodLogProvider.notifier).removeLog(log.id!),
       child: GestureDetector(
         onTap: () => _showEditLogSheet(context, ref, log),
         child: Container(
@@ -948,10 +912,8 @@ class _MealLogTile extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: AppColors.olive.withOpacity(0.1),
-                    shape: BoxShape.circle),
-                child: const Icon(Icons.restaurant,
-                    color: AppColors.olive, size: 20),
+                    color: AppColors.olive.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.restaurant, color: AppColors.olive, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -959,9 +921,7 @@ class _MealLogTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(log.foodName.toTitleCase(),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     Text(
                       '${log.type.name.toTitleCase()} · ${DateFormat('hh:mm a').format(log.consumedAt)}',
                       style: AppTextStyles.caption,
@@ -970,9 +930,7 @@ class _MealLogTile extends ConsumerWidget {
                 ),
               ),
               Text('${log.calories.toInt()} Kcal',
-                  style: const TextStyle(
-                      color: AppColors.olive,
-                      fontWeight: FontWeight.bold)),
+                  style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -995,8 +953,7 @@ class _MealLogTile extends ConsumerWidget {
 class _MacroMiniCard extends StatelessWidget {
   final String label, value;
   final Color color;
-  const _MacroMiniCard(
-      {required this.label, required this.value, required this.color});
+  const _MacroMiniCard({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1012,9 +969,7 @@ class _MacroMiniCard extends StatelessWidget {
           children: [
             Text(value,
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: AppColors.beige)),
+                    fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.beige)),
             const SizedBox(height: 4),
             Text(label.toTitleCase(), style: AppTextStyles.caption),
           ],
