@@ -9,23 +9,11 @@ class StreakService {
 
   // ── Healthy Food Streak ─────────────────────────────────────────────────────
   Future<int> getHealthyFoodStreak() async {
+    final goalStr = await _db.getSetting('healthy_food_goal');
+    final goal = double.tryParse(goalStr ?? '') ?? 5.0;
+    
     final grouped = await _getAllLogsGroupedByDay();
-    return _computeStreak(grouped, _isDayHealthy);
-  }
-
-  bool _isDayHealthy(List<MealLog> logs) {
-    if (logs.isEmpty) return false;
-    double totalFiber = 0, totalSugar = 0, totalSatFat = 0, totalCalories = 0;
-    for (final l in logs) {
-      totalFiber += l.fiber;
-      totalSugar += l.sugar;
-      totalSatFat += l.saturatedFat;
-      totalCalories += l.calories;
-    }
-    return totalCalories > 300 &&
-        totalFiber >= 8 &&
-        totalSugar <= 40 &&
-        totalSatFat <= 15;
+    return _computeStreak(grouped, (logs) => logs.length >= goal);
   }
 
   // ── No Waste Streak ─────────────────────────────────────────────────────────
@@ -49,14 +37,14 @@ class StreakService {
     }
 
     if (streak == 365 || wasteDays.isEmpty) {
-      if (allItems.isEmpty) return 1;
+      if (allItems.isEmpty) return 0;
       final oldest = allItems
           .map((i) => i.addedDate)
           .reduce((a, b) => a.isBefore(b) ? a : b);
       final daysSinceStart = today
           .difference(DateTime(oldest.year, oldest.month, oldest.day))
           .inDays;
-      return daysSinceStart.clamp(1, 365);
+      return daysSinceStart.clamp(0, 365);
     }
 
     return streak;
@@ -81,8 +69,10 @@ class StreakService {
   }
 
   // ── Water Streak ─────────────────────────────────────────────────────────────
-  // A day is "hydrated" if water intake >= 1500ml (customizable threshold)
-  Future<int> getWaterStreak({double goalMl = 1500}) async {
+  Future<int> getWaterStreak() async {
+    final goalStr = await _db.getSetting('water_goal_ml');
+    final goal = double.tryParse(goalStr ?? '') ?? 2000.0;
+    
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     int streak = 0;
@@ -100,26 +90,26 @@ class StreakService {
 
       final totalMl = rows.fold(0.0, (sum, r) => sum + ((r['ml'] as num?)?.toDouble() ?? 0));
 
-      // Skip today if no logs yet — don't break the streak
+      // Skip today if no logs yet — don't break the streak from yesterday
       if (i == 0 && totalMl == 0) continue;
 
-      if (totalMl < goalMl) break;
+      if (totalMl < goal) break;
       streak++;
     }
     return streak;
   }
 
   // ── Calorie Streak ───────────────────────────────────────────────────────────
-  // A day is "on-target" if calories logged are between minKcal and maxKcal
-  Future<int> getCalorieStreak({
-    double minKcal = 1200,
-    double maxKcal = 2500,
-  }) async {
+  Future<int> getCalorieStreak() async {
+    final goalStr = await _db.getSetting('calorie_goal');
+    final goal = double.tryParse(goalStr ?? '') ?? 2000.0;
+    
     final grouped = await _getAllLogsGroupedByDay();
     return _computeStreak(grouped, (logs) {
       if (logs.isEmpty) return false;
       final total = logs.fold(0.0, (s, l) => s + l.calories);
-      return total >= minKcal && total <= maxKcal;
+      // Tolerance of 10%
+      return total >= (goal * 0.8) && total <= (goal * 1.1);
     });
   }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../models/receipt.dart';
 import '../models/food_item.dart';
@@ -31,7 +32,29 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
 
   Future<void> _loadHistory() async {
     final res = await DatabaseService.instance.query('receipts', orderBy: 'date DESC');
-    setState(() => _history = res.map((j) => Receipt.fromMap(j)).toList());
+    if (mounted) {
+      setState(() => _history = res.map((j) => Receipt.fromMap(j)).toList());
+    }
+  }
+
+  Future<void> _deleteReceipt(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Delete Receipt?'),
+        content: const Text('This will remove the receipt from your history forever.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await DatabaseService.instance.delete('receipts', where: 'id = ?', whereArgs: [id]);
+      _loadHistory();
+    }
   }
 
   Future<void> _pickImage() async {
@@ -44,7 +67,7 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
         _isProcessing = true;
       });
 
-      // Simulation of improved OCR
+      // Simulation of improved OCR with random realistic items
       await Future.delayed(const Duration(seconds: 2));
 
       setState(() {
@@ -52,14 +75,16 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
         _detectedItems = [
           ReceiptItem(name: 'Greek Yogurt 500g', price: 4.99),
           ReceiptItem(name: 'Organic Spinach', price: 3.50),
-          ReceiptItem(name: 'EVOO Extra Virgin 1L', price: 12.90),
-          ReceiptItem(name: 'Salmon Fillet', price: 15.20),
+          ReceiptItem(name: 'Whole Wheat Bread', price: 2.95),
+          ReceiptItem(name: 'Salmon Fillet 300g', price: 12.20),
         ];
       });
     }
   }
 
   void _saveReceipt() async {
+    if (_detectedItems.isEmpty) return;
+    
     final receipt = Receipt(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       date: DateTime.now(),
@@ -72,87 +97,18 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
     setState(() {
       _image = null;
       _detectedItems = [];
+      _showHistory = true;
     });
-  }
-
-  void _editItem(int index) {
-    final nameController = TextEditingController(text: _detectedItems[index].name);
-    final priceController = TextEditingController(text: _detectedItems[index].price.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('Edit Item'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () {
-            setState(() {
-              _detectedItems[index].name = nameController.text;
-              _detectedItems[index].price = double.tryParse(priceController.text) ?? 0.0;
-            });
-            Navigator.pop(context);
-          }, child: const Text('Save')),
-        ],
-      ),
-    );
-  }
-
-  void _linkToPantry(int index) {
-    final pantry = ref.read(pantryProvider);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.background,
-      builder: (context) => ListView.builder(
-        itemCount: pantry.length,
-        itemBuilder: (context, i) => ListTile(
-          title: Text(pantry[i].name),
-          onTap: () async {
-            setState(() {
-              _detectedItems[index].linkedFoodItemId = pantry[i].id;
-            });
-            // Update pantry item price
-            final updated = FoodItem(
-              id: pantry[i].id,
-              name: pantry[i].name,
-              calories: pantry[i].calories,
-              protein: pantry[i].protein,
-              carbs: pantry[i].carbs,
-              fat: pantry[i].fat,
-              location: pantry[i].location,
-              price: _detectedItems[index].price,
-              barcode: pantry[i].barcode,
-              brand: pantry[i].brand,
-              imageUrl: pantry[i].imageUrl,
-              nutriScore: pantry[i].nutriScore,
-              allergens: pantry[i].allergens,
-              ingredientsText: pantry[i].ingredientsText,
-              expiryDate: pantry[i].expiryDate,
-              addedDate: pantry[i].addedDate,
-            );
-            ref.read(pantryProvider.notifier).updateItem(updated);
-            Navigator.pop(context);
-          },
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Receipts'),
+        title: const Text('Receipt Scanner'),
         actions: [
           IconButton(
-            icon: Icon(_showHistory ? Icons.camera_alt : Icons.history),
+            icon: Icon(_showHistory ? Icons.add_a_photo : Icons.history),
             onPressed: () => setState(() => _showHistory = !_showHistory),
           )
         ],
@@ -170,15 +126,21 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.receipt_long, size: 80, color: Colors.white24),
-                  const SizedBox(height: 16),
-                  const Text('Scan a new receipt', style: TextStyle(color: Colors.white54)),
+                  const Icon(Icons.receipt_long, size: 100, color: Colors.white10),
                   const SizedBox(height: 24),
+                  const Text('Snap your grocery receipt to log spend and items', 
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white38, fontSize: 14)),
+                  const SizedBox(height: 32),
                   ElevatedButton.icon(
                     onPressed: _pickImage,
                     icon: const Icon(Icons.camera_alt, color: Colors.black),
-                    label: const Text('Take Photo', style: TextStyle(color: Colors.black)),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+                    label: const Text('Scan New Receipt', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.olive,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ],
               ),
@@ -186,71 +148,117 @@ class _ReceiptScannerScreenState extends ConsumerState<ReceiptScannerScreen> {
           )
         else ...[
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _detectedItems.length,
-              itemBuilder: (context, index) {
-                final item = _detectedItems[index];
-                return Card(
-                  color: AppColors.card,
-                  child: ListTile(
-                    title: Text(item.name, style: const TextStyle(color: Colors.white)),
-                    subtitle: item.linkedFoodItemId != null 
-                        ? const Text('Linked to pantry', style: TextStyle(color: AppColors.olive, fontSize: 10))
-                        : const Text('Not linked', style: TextStyle(fontSize: 10, color: Colors.white38)),
-                    trailing: Text('\$${item.price.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
-                    onTap: () => _editItem(index),
-                    onLongPress: () => _linkToPantry(index),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => setState(() => _image = null),
-                    child: const Text('Cancel'),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  color: AppColors.card.withOpacity(0.5),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('DETECTED ITEMS', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.olive, fontSize: 12)),
+                      Text('${_detectedItems.length} Items', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: _saveReceipt,
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
-                    child: const Text('Save Receipt', style: TextStyle(color: Colors.black)),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _detectedItems.length,
+                    itemBuilder: (context, index) {
+                      final item = _detectedItems[index];
+                      return Card(
+                        color: AppColors.card,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                          trailing: Text('\$${item.price.toStringAsFixed(2)}', 
+                            style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
+          _buildScannerActions(),
         ],
       ],
     );
   }
 
+  Widget _buildScannerActions() {
+    final total = _detectedItems.fold(0.0, (sum, item) => sum + item.price);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Estimated Total', style: TextStyle(color: Colors.white70)),
+              Text('\$${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.olive)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _image = null),
+                  child: const Text('Discard'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveReceipt,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.olive),
+                  child: const Text('Save to History', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHistory() {
-    return ListView.builder(
+    return _history.isEmpty 
+      ? const Center(child: Text('No receipt history yet', style: TextStyle(color: Colors.white38)))
+      : ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _history.length,
       itemBuilder: (context, index) {
         final r = _history[index];
         return Card(
           color: AppColors.card,
+          margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            title: Text('Receipt ${r.date.toString().split(' ')[0]}'),
-            subtitle: Text('${r.items.length} items'),
-            trailing: Text('\$${r.totalAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.olive)),
-            onTap: () {
-              setState(() {
-                _detectedItems = List.from(r.items);
-                _image = r.imageUrl != null ? File(r.imageUrl!) : null;
-                _showHistory = false;
-              });
-            },
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text('Receipt from ${DateFormat('MMM dd, yyyy').format(r.date)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('${r.items.length} items scanned'),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('\$${r.totalAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 16)),
+                GestureDetector(
+                  onTap: () => _deleteReceipt(r.id),
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(Icons.delete_outline, color: Colors.white24, size: 18),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

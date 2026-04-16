@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/constants.dart';
+import '../utils/dietary_rules.dart';
 import '../providers/food_log_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/meal_log.dart';
+import '../models/food_item.dart';
 import '../widgets/nutrient_bar.dart';
 
 class AddictionScreen extends ConsumerStatefulWidget {
@@ -47,13 +50,34 @@ class _AddictionScreenState extends ConsumerState<AddictionScreen> {
   @override
   Widget build(BuildContext context) {
     final totals = ref.watch(foodLogProvider.notifier).getDailyTotals();
-    
+    final settings = ref.watch(settingsProvider);
+    final userAllergies = List<String>.from(settings['allergies'] ?? []);
+    final userDietary = List<String>.from(settings['dietary_prefs'] ?? []);
+    final userReligious = List<String>.from(settings['religious_prefs'] ?? []);
+
     final addictiveNutriments = [
       {'label': 'Saturated Fat', 'value': totals['saturatedFat'] ?? 0, 'goal': 20.0, 'unit': 'g', 'color': Colors.redAccent},
       {'label': 'Sugar', 'value': totals['sugar'] ?? 0, 'goal': 30.0, 'unit': 'g', 'color': Colors.orangeAccent},
       {'label': 'Sodium', 'value': totals['sodium'] ?? 0, 'goal': 2300.0, 'unit': 'mg', 'color': Colors.yellowAccent},
       {'label': 'Cholesterol', 'value': totals['cholesterol'] ?? 0, 'goal': 300.0, 'unit': 'mg', 'color': Colors.deepOrange},
     ];
+
+    // Check for violations in current daily logs
+    final dailyLogs = ref.watch(foodLogProvider);
+    final List<String> currentViolations = [];
+    for (var log in dailyLogs) {
+      final item = FoodItem(name: log.foodName, ingredientsText: log.foodName);
+      final allergens = DietaryRules.detectAllergies(item, userAllergies);
+      // Pass settings as 4th arg for OFF quality checks
+      final violations = DietaryRules.detectViolations(item, userDietary, userReligious, settings);
+      
+      if (allergens.isNotEmpty) {
+        currentViolations.add('${log.foodName}: Contains ${allergens.join(", ")}');
+      }
+      if (violations.isNotEmpty) {
+        currentViolations.add('${log.foodName}: ${violations.join(", ")}');
+      }
+    }
 
     final topAddictions = _foodFrequency.entries.where((e) => e.value >= 3).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -67,6 +91,28 @@ class _AddictionScreenState extends ConsumerState<AddictionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (currentViolations.isNotEmpty) ...[
+              Text('Dietary Warnings'.toTitleCase(), style: AppTextStyles.heading2.copyWith(color: AppColors.danger)),
+              const SizedBox(height: 12),
+              ...currentViolations.map((v) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(v, style: const TextStyle(color: Colors.white, fontSize: 12))),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 24),
+            ],
+
             Text('Daily Addictive Nutriments'.toTitleCase(), style: AppTextStyles.heading2),
             const SizedBox(height: 16),
             ...addictiveNutriments.map((n) => NutrientBar(
@@ -114,15 +160,6 @@ class _AddictionScreenState extends ConsumerState<AddictionScreen> {
               child: _FoodTypeBarChart(frequency: _foodFrequency),
             ),
 
-            const SizedBox(height: 32),
-            Text('Addiction Intensity Trend'.toTitleCase(), style: AppTextStyles.heading2),
-            const SizedBox(height: 16),
-            Container(
-              height: 200,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(20)),
-              child: _IntensityChart(totals: totals),
-            ),
             const SizedBox(height: 100),
           ],
         ),
@@ -186,41 +223,6 @@ class _FoodTypeBarChart extends StatelessWidget {
             ),
           ],
         )).toList(),
-      ),
-    );
-  }
-}
-
-class _IntensityChart extends StatelessWidget {
-  final Map<String, double> totals;
-  const _IntensityChart({required this.totals});
-
-  @override
-  Widget build(BuildContext context) {
-    final spots = List.generate(7, (i) {
-      double intensity = ((totals['sugar'] ?? 0) / 30.0 + (totals['saturatedFat'] ?? 0) / 20.0) * 50;
-      return FlSpot(i.toDouble(), intensity * (0.7 + i * 0.1));
-    });
-
-    return LineChart(
-      LineChartData(
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true)),
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: Colors.redAccent,
-            barWidth: 4,
-            belowBarData: BarAreaData(show: true, color: Colors.redAccent.withOpacity(0.1)),
-          ),
-        ],
       ),
     );
   }

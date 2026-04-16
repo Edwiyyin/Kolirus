@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/pantry_provider.dart';
-import '../models/meal_log.dart'; // Ensure MealType is defined here
+import '../models/meal_log.dart';
 import '../models/food_item.dart';
+import '../models/meal_type.dart';
 import '../utils/constants.dart';
-
-// If MealType is not defined in meal_log.dart, uncomment the line below:
- enum MealType { breakfast, lunch, dinner, snack }
 
 class FoodLogScreen extends ConsumerStatefulWidget {
   const FoodLogScreen({super.key});
@@ -26,21 +25,22 @@ class _FoodLogScreenState extends ConsumerState<FoodLogScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Log'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.calendar_month, color: AppColors.olive),
+              onPressed: () => _selectDate(context),
+            ),
+            Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2023),
-                lastDate: DateTime.now(),
-              );
-              if (date != null) {
-                setState(() => _selectedDate = date);
-                ref.read(foodLogProvider.notifier).loadLogs(date);
-              }
+            icon: const Icon(Icons.today),
+            onPressed: () {
+              setState(() => _selectedDate = DateTime.now());
+              ref.read(foodLogProvider.notifier).loadLogs(DateTime.now());
             },
           )
         ],
@@ -56,20 +56,31 @@ class _FoodLogScreenState extends ConsumerState<FoodLogScreen> {
               itemCount: logs.length,
               itemBuilder: (context, index) {
                 final log = logs[index];
-                return Card(
-                  color: AppColors.card,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: Icon(
-                      log.type == MealType.breakfast ? Icons.wb_sunny_outlined :
-                      log.type == MealType.lunch ? Icons.wb_cloudy_outlined :
-                      log.type == MealType.dinner ? Icons.nights_stay_outlined : Icons.apple,
-                      color: AppColors.olive,
+                return Dismissible(
+                  key: Key(log.id ?? index.toString()),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    color: AppColors.danger,
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (_) => ref.read(foodLogProvider.notifier).removeLog(log.id!),
+                  child: Card(
+                    color: AppColors.card,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Icon(
+                        log.type == MealType.Breakfast ? Icons.wb_sunny_outlined :
+                        log.type == MealType.Lunch ? Icons.wb_cloudy_outlined :
+                        log.type == MealType.Dinner ? Icons.nights_stay_outlined : Icons.apple,
+                        color: AppColors.olive,
+                      ),
+                      title: Text(log.foodName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('${log.type.name.toUpperCase()} • ${log.quantity}g'),
+                      trailing: Text('${log.calories.toStringAsFixed(0)} kcal',
+                          style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
                     ),
-                    title: Text(log.foodName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${log.type.name.toUpperCase()} • ${log.quantity}g'),
-                    trailing: Text('${log.calories.toStringAsFixed(0)} kcal',
-                        style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold)),
                   ),
                 );
               },
@@ -85,10 +96,36 @@ class _FoodLogScreenState extends ConsumerState<FoodLogScreen> {
     );
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.olive,
+              onPrimary: Colors.black,
+              surface: AppColors.card,
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (date != null) {
+      setState(() => _selectedDate = date);
+      ref.read(foodLogProvider.notifier).loadLogs(date);
+    }
+  }
+
   void _showAddMealDialog(BuildContext context) {
     final pantry = ref.read(pantryProvider);
     FoodItem? selectedItem;
-    MealType selectedType = MealType.breakfast;
+    MealType selectedType = MealType.Lunch;
     final quantityController = TextEditingController(text: '100');
 
     showDialog(
@@ -108,7 +145,7 @@ class _FoodLogScreenState extends ConsumerState<FoodLogScreen> {
                   isExpanded: true,
                   items: pantry.map((item) => DropdownMenuItem(
                     value: item,
-                    child: Text(item.name, style: const TextStyle(color: Colors.white)),
+                    child: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 13)),
                   )).toList(),
                   onChanged: (val) => setDialogState(() => selectedItem = val),
                 ),
@@ -129,7 +166,7 @@ class _FoodLogScreenState extends ConsumerState<FoodLogScreen> {
                   controller: quantityController,
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
-                    labelText: 'Quantity (grams/units)',
+                    labelText: 'Quantity (grams)',
                     focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
                   ),
                   keyboardType: TextInputType.number,

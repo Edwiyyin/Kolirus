@@ -22,4 +22,14 @@ class ScanHistoryNotifier extends StateNotifier<List<FoodItem>> {
     await _db.insertScanHistory(item);
     await loadHistory();
   }
+
+  Future<void> removeFromHistory(String id) async {
+    await _db.delete('scan_history', where: 'id = ?', whereArgs: [id]);
+    await loadHistory();
+  }
+
+  Future<void> clearHistory() async {
+    await _db.delete('scan_history');
+    state = [];
+  }
 }

@@ -2,74 +2,116 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/constants.dart';
 import '../providers/settings_provider.dart';
+import '../services/auth_service.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  final List<String> _availableAllergens = const [
-    'Gluten', 'Milk', 'Eggs', 'Nuts', 'Peanuts', 'Sesame', 'Soybeans', 'Fish', 'Shellfish', 'Celery', 'Mustard', 'Lupin', 'Molluscs', 'Sulphites'
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
-    final userAllergies = List<String>.from(settings['allergies'] ?? []);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile Settings'),
+        title: const Text('Goals'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Center(
-            child: CircleAvatar(
-              radius: 50,
-              backgroundColor: AppColors.primary,
-              child: Icon(Icons.person, size: 50, color: AppColors.accent),
-            ),
-          ),
+          const AccountCard(),
           const SizedBox(height: 24),
-          const Text('Dietary Filters & Allergies', style: AppTextStyles.heading2),
-          const SizedBox(height: 12),
-          const Text(
-            'Select ingredients you are allergic to. We will warn you when scanning products containing these.',
-            style: AppTextStyles.caption,
+          
+          _goalTile(
+            context,
+            ref,
+            icon: Icons.monitor_weight_outlined,
+            label: 'Weight Goal',
+            value: '${settings['weight_goal'] ?? 70} kg',
+            onTap: () => _showGoalDialog(context, ref, 'weight_goal', 'Weight Goal (kg)'),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            children: _availableAllergens.map((allergy) {
-              final isSelected = userAllergies.contains(allergy.toLowerCase());
-              return FilterChip(
-                label: Text(allergy),
-                selected: isSelected,
-                onSelected: (selected) {
-                  final newList = List<String>.from(userAllergies);
-                  if (selected) {
-                    newList.add(allergy.toLowerCase());
-                  } else {
-                    newList.remove(allergy.toLowerCase());
-                  }
-                  ref.read(settingsProvider.notifier).updateAllergies(newList);
-                },
-                selectedColor: AppColors.accent,
-                checkmarkColor: Colors.black,
-                labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white),
-              );
-            }).toList(),
+          _goalTile(
+            context,
+            ref,
+            icon: Icons.local_fire_department_outlined,
+            label: 'Calorie Goal',
+            value: '${settings['calorie_goal'] ?? 2000} kcal',
+            onTap: () => _showGoalDialog(context, ref, 'calorie_goal', 'Calorie Goal (kcal)'),
           ),
-          const SizedBox(height: 32),
-          const Text('Profile Info', style: AppTextStyles.heading2),
-          const ListTile(
-            leading: Icon(Icons.email_outlined, color: AppColors.accent),
-            title: Text('Email', style: TextStyle(color: Colors.white)),
-            subtitle: Text('user@example.com', style: AppTextStyles.caption),
+          _goalTile(
+            context,
+            ref,
+            icon: Icons.water_drop_outlined,
+            label: 'Water Goal',
+            value: '${settings['water_goal_ml'] ?? 2000} ml',
+            onTap: () => _showGoalDialog(context, ref, 'water_goal_ml', 'Water Goal (ml)'),
           ),
-          const ListTile(
-            leading: Icon(Icons.cake_outlined, color: AppColors.accent),
-            title: Text('Birthday', style: TextStyle(color: Colors.white)),
-            subtitle: Text('Jan 01, 1990', style: AppTextStyles.caption),
+          _goalTile(
+            context,
+            ref,
+            icon: Icons.restaurant_outlined,
+            label: 'Healthy Food Goal',
+            value: '${settings['healthy_food_goal'] ?? 5} items',
+            onTap: () => _showGoalDialog(context, ref, 'healthy_food_goal', 'Healthy Food Goal (items/day)'),
+          ),
+          
+          const SizedBox(height: 40),
+          const Center(
+            child: Text('Goals help Koly track your progress!', 
+              style: TextStyle(color: Colors.white24, fontSize: 12, fontStyle: FontStyle.italic)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _goalTile(BuildContext context, WidgetRef ref, {required IconData icon, required String label, required String value, required VoidCallback onTap}) {
+    return Card(
+      color: AppColors.card,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.olive.withOpacity(0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: AppColors.olive, size: 20),
+        ),
+        title: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+        trailing: Text(value, style: const TextStyle(color: AppColors.olive, fontWeight: FontWeight.bold, fontSize: 16)),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showGoalDialog(BuildContext context, WidgetRef ref, String key, String title) {
+    final settings = ref.read(settingsProvider);
+    final ctrl = TextEditingController(text: settings[key]?.toString() ?? '');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text(title, style: const TextStyle(fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.olive)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final val = double.tryParse(ctrl.text);
+              if (val != null) {
+                final newSettings = Map<String, dynamic>.from(settings);
+                newSettings[key] = val;
+                ref.read(settingsProvider.notifier).updateSettings(newSettings);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: AppColors.olive)),
           ),
         ],
       ),
