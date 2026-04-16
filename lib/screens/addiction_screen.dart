@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/constants.dart';
-import '../utils/dietary_rules.dart';
+import '../utils/diet_constants.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/pantry_provider.dart';
 import '../models/meal_log.dart';
 import '../models/food_item.dart';
+import '../services/database_service.dart';
+import '../screens/scanner_screen.dart';
 import '../widgets/nutrient_bar.dart';
 
 class AddictionScreen extends ConsumerStatefulWidget {
@@ -16,32 +19,46 @@ class AddictionScreen extends ConsumerStatefulWidget {
   ConsumerState<AddictionScreen> createState() => _AddictionScreenState();
 }
 
-class _AddictionScreenState extends ConsumerState<AddictionScreen> {
+class _AddictionScreenState extends ConsumerState<AddictionScreen>
+    with SingleTickerProviderStateMixin {
   List<MealLog> _weeklyLogs = [];
   Map<String, int> _foodFrequency = {};
+  List<Map<String, dynamic>> _customDiets = [];
   bool _isLoading = true;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
     final now = DateTime.now();
     final start = now.subtract(const Duration(days: 7));
-    final logs = await ref.read(foodLogProvider.notifier).getLogsForRange(start, now);
-    
+    final logs =
+    await ref.read(foodLogProvider.notifier).getLogsForRange(start, now);
+
     final frequency = <String, int>{};
-    for (var log in logs) {
+    for (final log in logs) {
       final name = log.foodName.toLowerCase().trim();
       frequency[name] = (frequency[name] ?? 0) + 1;
     }
+
+    final diets = await DatabaseService.instance.getCustomDiets();
 
     if (mounted) {
       setState(() {
         _weeklyLogs = logs;
         _foodFrequency = frequency;
+        _customDiets = diets;
         _isLoading = false;
       });
     }
@@ -51,122 +68,426 @@ class _AddictionScreenState extends ConsumerState<AddictionScreen> {
   Widget build(BuildContext context) {
     final totals = ref.watch(foodLogProvider.notifier).getDailyTotals();
     final settings = ref.watch(settingsProvider);
-    final userAllergies = List<String>.from(settings['allergies'] ?? []);
-    final userDietary = List<String>.from(settings['dietary_prefs'] ?? []);
-    final userReligious = List<String>.from(settings['religious_prefs'] ?? []);
+    final pantry = ref.watch(pantryProvider);
 
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Addiction & Filter Tracker'),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.olive,
+          labelColor: AppColors.olive,
+          unselectedLabelColor: Colors.white38,
+          tabs: const [
+            Tab(text: 'Habits'),
+            Tab(text: 'Pantry Warnings'),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+          child: CircularProgressIndicator(color: AppColors.olive))
+          : TabBarView(
+        controller: _tabController,
+        children: [
+          _buildHabitsTab(totals),
+          _buildPantryWarningsTab(settings, pantry),
+        ],
+      ),
+    );
+  }
+
+  // ── Habits Tab ────────────────────────────────────────────────────────────
+
+  Widget _buildHabitsTab(Map<String, double> totals) {
     final addictiveNutriments = [
-      {'label': 'Saturated Fat', 'value': totals['saturatedFat'] ?? 0, 'goal': 20.0, 'unit': 'g', 'color': Colors.redAccent},
-      {'label': 'Sugar', 'value': totals['sugar'] ?? 0, 'goal': 30.0, 'unit': 'g', 'color': Colors.orangeAccent},
-      {'label': 'Sodium', 'value': totals['sodium'] ?? 0, 'goal': 2300.0, 'unit': 'mg', 'color': Colors.yellowAccent},
-      {'label': 'Cholesterol', 'value': totals['cholesterol'] ?? 0, 'goal': 300.0, 'unit': 'mg', 'color': Colors.deepOrange},
+      {
+        'label': 'Saturated Fat',
+        'value': totals['saturatedFat'] ?? 0,
+        'goal': 20.0,
+        'unit': 'g',
+        'color': Colors.redAccent
+      },
+      {
+        'label': 'Sugar',
+        'value': totals['sugar'] ?? 0,
+        'goal': 30.0,
+        'unit': 'g',
+        'color': Colors.orangeAccent
+      },
+      {
+        'label': 'Sodium',
+        'value': totals['sodium'] ?? 0,
+        'goal': 2300.0,
+        'unit': 'mg',
+        'color': Colors.yellowAccent
+      },
+      {
+        'label': 'Cholesterol',
+        'value': totals['cholesterol'] ?? 0,
+        'goal': 300.0,
+        'unit': 'mg',
+        'color': Colors.deepOrange
+      },
     ];
 
-    // Check for violations in current daily logs
-    final dailyLogs = ref.watch(foodLogProvider);
-    final List<String> currentViolations = [];
-    for (var log in dailyLogs) {
-      final item = FoodItem(name: log.foodName, ingredientsText: log.foodName);
-      final allergens = DietaryRules.detectAllergies(item, userAllergies);
-      // Pass settings as 4th arg for OFF quality checks
-      final violations = DietaryRules.detectViolations(item, userDietary, userReligious, settings);
-      
-      if (allergens.isNotEmpty) {
-        currentViolations.add('${log.foodName}: Contains ${allergens.join(", ")}');
-      }
-      if (violations.isNotEmpty) {
-        currentViolations.add('${log.foodName}: ${violations.join(", ")}');
+    final topAddictions = _foodFrequency.entries
+        .where((e) => e.value >= 3)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Daily Addictive Nutrients',
+              style: AppTextStyles.heading2),
+          const SizedBox(height: 4),
+          const Text(
+            'These are nutrients that trigger cravings and habitual overconsumption.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+          ...addictiveNutriments.map((n) => NutrientBar(
+            label: n['label'] as String,
+            value: n['value'] as double,
+            goal: n['goal'] as double,
+            unit: n['unit'] as String,
+            color: n['color'] as Color,
+          )),
+
+          if (topAddictions.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            Text('Frequent Food Warnings',
+                style: AppTextStyles.heading2
+                    .copyWith(color: Colors.redAccent)),
+            const SizedBox(height: 4),
+            const Text(
+              'Foods you ate 3 or more times this week.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            const SizedBox(height: 12),
+            ...topAddictions.map((e) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: Colors.redAccent.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.redAccent, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'You ate ${e.key.toTitleCase()} ${e.value}x this week. Try to vary your diet.',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+
+          const SizedBox(height: 32),
+          const Text('Weekly Food Variety', style: AppTextStyles.heading2),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(20)),
+            child: _FoodTypeBarChart(frequency: _foodFrequency),
+          ),
+
+          const SizedBox(height: 32),
+          const Text('7-Day Addictive Load Trend',
+              style: AppTextStyles.heading2),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(20)),
+            child: _IntensityChart(weeklyLogs: _weeklyLogs),
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  // ── Pantry Warnings Tab ───────────────────────────────────────────────────
+
+  Widget _buildPantryWarningsTab(
+      Map<String, dynamic> settings, List<FoodItem> pantry) {
+    final userAllergies =
+    List<String>.from(settings['allergies'] ?? []);
+    final userDietary =
+    List<String>.from(settings['dietary_prefs'] ?? []);
+    final userReligious =
+    List<String>.from(settings['religious_prefs'] ?? []);
+    final userQuality =
+    List<String>.from(settings['quality_filters'] ?? []);
+
+    final hasAnyFilter = userAllergies.isNotEmpty ||
+        userDietary.isNotEmpty ||
+        userReligious.isNotEmpty ||
+        userQuality.isNotEmpty ||
+        _customDiets.isNotEmpty;
+
+    if (!hasAnyFilter) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.tune, size: 48, color: Colors.white24),
+              const SizedBox(height: 16),
+              const Text(
+                'No filters configured',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Set your allergies, dietary preferences, or ingredient quality filters in Goals to see warnings for pantry items.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white38, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Scan all pantry items against all active filters
+    final List<_PantryWarning> warnings = [];
+    for (final item in pantry) {
+      final allergyHits =
+      _ScannerScreenState.detectAllergens(item, userAllergies);
+      final dietHits = _ScannerScreenState.detectDietaryViolations(
+          item, userDietary, userReligious);
+      final qualityHits =
+      _ScannerScreenState.detectQualityViolations(item, userQuality);
+      final customHits = _ScannerScreenState.detectCustomDietViolations(
+          item, _customDiets);
+
+      if (allergyHits.isNotEmpty ||
+          dietHits.isNotEmpty ||
+          qualityHits.isNotEmpty ||
+          customHits.isNotEmpty) {
+        warnings.add(_PantryWarning(
+          item: item,
+          allergyHits: allergyHits,
+          dietHits: dietHits,
+          qualityHits: qualityHits,
+          customHits: customHits,
+        ));
       }
     }
 
-    final topAddictions = _foodFrequency.entries.where((e) => e.value >= 3).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    if (pantry.isEmpty) {
+      return const Center(
+        child: Text('Your pantry is empty.',
+            style: TextStyle(color: Colors.white38)),
+      );
+    }
 
-    return Scaffold(
-      appBar: AppBar(title: Text('Addiction Tracker'.toTitleCase())),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: AppColors.olive))
-        : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (currentViolations.isNotEmpty) ...[
-              Text('Dietary Warnings'.toTitleCase(), style: AppTextStyles.heading2.copyWith(color: AppColors.danger)),
-              const SizedBox(height: 12),
-              ...currentViolations.map((v) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.danger.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.danger.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(v, style: const TextStyle(color: Colors.white, fontSize: 12))),
-                  ],
-                ),
-              )),
-              const SizedBox(height: 24),
-            ],
-
-            Text('Daily Addictive Nutriments'.toTitleCase(), style: AppTextStyles.heading2),
-            const SizedBox(height: 16),
-            ...addictiveNutriments.map((n) => NutrientBar(
-              label: n['label'] as String,
-              value: n['value'] as double,
-              goal: n['goal'] as double,
-              unit: n['unit'] as String,
-              color: n['color'] as Color,
-            )),
-            
-            if (topAddictions.isNotEmpty) ...[
-              const SizedBox(height: 32),
-              Text('Frequent Food Warnings'.toTitleCase(), style: AppTextStyles.heading2.copyWith(color: Colors.redAccent)),
-              const SizedBox(height: 12),
-              ...topAddictions.map((e) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'You ate ${e.key.toTitleCase()} ${e.value} times this week. Try to vary your diet!',
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-            ],
-
-            const SizedBox(height: 32),
-            Text('Weekly Food Variety'.toTitleCase(), style: AppTextStyles.heading2),
-            const SizedBox(height: 16),
-            Container(
-              height: 200,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(20)),
-              child: _FoodTypeBarChart(frequency: _foodFrequency),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Summary
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: warnings.isEmpty
+                  ? AppColors.olive.withOpacity(0.1)
+                  : Colors.redAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: warnings.isEmpty
+                    ? AppColors.olive.withOpacity(0.4)
+                    : Colors.redAccent.withOpacity(0.4),
+              ),
             ),
+            child: Row(
+              children: [
+                Icon(
+                  warnings.isEmpty
+                      ? Icons.check_circle_outline
+                      : Icons.warning_amber_rounded,
+                  color: warnings.isEmpty
+                      ? AppColors.olive
+                      : Colors.redAccent,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    warnings.isEmpty
+                        ? 'All ${pantry.length} pantry items pass your active filters.'
+                        : '${warnings.length} of ${pantry.length} pantry items flagged by your filters.',
+                    style: TextStyle(
+                      color: warnings.isEmpty
+                          ? AppColors.olive
+                          : Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
-            const SizedBox(height: 100),
+          if (warnings.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Text('Nothing flagged — your pantry looks good!',
+                    style: TextStyle(color: Colors.white38)),
+              ),
+            )
+          else ...[
+            Text('${warnings.length} Flagged Items',
+                style: AppTextStyles.heading2),
+            const SizedBox(height: 12),
+            ...warnings.map((w) => _PantryWarningCard(warning: w)),
           ],
-        ),
+          const SizedBox(height: 100),
+        ],
       ),
     );
   }
 }
+
+// ── Pantry Warning Model ────────────────────────────────────────────────────
+
+class _PantryWarning {
+  final FoodItem item;
+  final List<String> allergyHits;
+  final List<String> dietHits;
+  final List<String> qualityHits;
+  final List<String> customHits;
+  _PantryWarning({
+    required this.item,
+    required this.allergyHits,
+    required this.dietHits,
+    required this.qualityHits,
+    required this.customHits,
+  });
+}
+
+class _PantryWarningCard extends StatelessWidget {
+  final _PantryWarning warning;
+  const _PantryWarningCard({required this.warning});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.inventory_2_outlined,
+                  color: Colors.white54, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  warning.item.name.toTitleCase(),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  warning.item.location.name.toUpperCase(),
+                  style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (warning.allergyHits.isNotEmpty)
+            _flagRow(
+              Icons.warning_amber_rounded,
+              Colors.redAccent,
+              'Allergen',
+              warning.allergyHits
+                  .map((a) => a.toUpperCase())
+                  .join(', '),
+            ),
+          if (warning.dietHits.isNotEmpty)
+            _flagRow(Icons.block, Colors.orangeAccent, 'Diet',
+                warning.dietHits.join(', ')),
+          if (warning.qualityHits.isNotEmpty)
+            _flagRow(Icons.science_outlined,
+                Colors.tealAccent.shade700, 'Quality',
+                warning.qualityHits.join(', ')),
+          if (warning.customHits.isNotEmpty)
+            _flagRow(Icons.tune, Colors.deepOrangeAccent, 'Custom',
+                warning.customHits.join(', ')),
+        ],
+      ),
+    );
+  }
+
+  Widget _flagRow(
+      IconData icon, Color color, String type, String message) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text('$type: ',
+              style: TextStyle(
+                  color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(message,
+                style: TextStyle(color: color, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────
 
 class _FoodTypeBarChart extends StatelessWidget {
   final Map<String, int> frequency;
@@ -174,9 +495,14 @@ class _FoodTypeBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (frequency.isEmpty) return const Center(child: Text('No data recorded'));
-    
-    final sorted = frequency.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    if (frequency.isEmpty) {
+      return const Center(
+          child: Text('No data recorded',
+              style: TextStyle(color: Colors.white38)));
+    }
+
+    final sorted = frequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final displayList = sorted.take(5).toList();
 
     return BarChart(
@@ -190,39 +516,116 @@ class _FoodTypeBarChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
-                int index = value.toInt();
-                if (index >= 0 && index < displayList.length) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      displayList[index].key.length > 6 
-                        ? '${displayList[index].key.substring(0, 5)}..' 
-                        : displayList[index].key,
-                      style: const TextStyle(color: Colors.white54, fontSize: 10),
-                    ),
-                  );
-                }
-                return const Text('');
+                final i = value.toInt();
+                if (i < 0 || i >= displayList.length)
+                  return const Text('');
+                final name = displayList[i].key;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    name.length > 6
+                        ? '${name.substring(0, 5)}..'
+                        : name,
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 10),
+                  ),
+                );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
         ),
         gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
-        barGroups: displayList.asMap().entries.map((e) => BarChartGroupData(
+        barGroups: displayList.asMap().entries
+            .map((e) => BarChartGroupData(
           x: e.key,
           barRods: [
             BarChartRodData(
               toY: e.value.value.toDouble(),
-              color: e.value.value >= 3 ? Colors.redAccent : AppColors.olive,
+              color: e.value.value >= 3
+                  ? Colors.redAccent
+                  : AppColors.olive,
               width: 16,
               borderRadius: BorderRadius.circular(4),
             ),
           ],
-        )).toList(),
+        ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _IntensityChart extends StatelessWidget {
+  final List<MealLog> weeklyLogs;
+  const _IntensityChart({required this.weeklyLogs});
+
+  @override
+  Widget build(BuildContext context) {
+    // Group logs by day and compute daily addictive load
+    final now = DateTime.now();
+    final spots = <FlSpot>[];
+    for (int i = 6; i >= 0; i--) {
+      final day = now.subtract(Duration(days: i));
+      final dayLogs = weeklyLogs.where((l) =>
+      l.consumedAt.year == day.year &&
+          l.consumedAt.month == day.month &&
+          l.consumedAt.day == day.day);
+
+      double load = 0;
+      for (final l in dayLogs) {
+        load += (l.sugar / 30.0) * 30 +
+            (l.saturatedFat / 20.0) * 30 +
+            (l.sodium / 2300.0) * 20 +
+            (l.cholesterol / 300.0) * 20;
+      }
+      spots.add(FlSpot((6 - i).toDouble(), load.clamp(0, 100)));
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (v, _) {
+                const days = ['6d', '5d', '4d', '3d', '2d', 'Yes', 'Tod'];
+                final i = v.toInt();
+                if (i < 0 || i >= days.length) return const Text('');
+                return Text(days[i],
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 9));
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        minY: 0,
+        maxY: 100,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: Colors.redAccent,
+            barWidth: 4,
+            belowBarData: BarAreaData(
+                show: true,
+                color: Colors.redAccent.withOpacity(0.1)),
+          ),
+        ],
       ),
     );
   }

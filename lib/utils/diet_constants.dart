@@ -139,14 +139,12 @@ const Map<String, List<String>> religiousViolationKeywords = {
     'blood', 'blood sausage', 'black pudding', 'lard', 'suet',
     'ethanol', 'vanilla extract', 'wine vinegar', 'mirin', 'sake',
     'pork rinds', 'pork belly', 'pork fat', 'dripping',
-    // non-halal slaughter derivatives
     'non-halal', 'pork broth', 'pork stock', 'pork extract',
   ],
   'kosher': [
     'pork', 'pig', 'lard', 'bacon', 'ham', 'shellfish', 'shrimp',
     'crab', 'lobster', 'rabbit', 'hare', 'eel', 'catfish', 'squid',
     'octopus', 'oyster', 'mussel', 'clam', 'scallop', 'non-kosher',
-    // mixing meat & dairy
     'cheeseburger', 'chicken parmesan',
   ],
   'christian lent': [
@@ -183,6 +181,102 @@ const Map<String, List<String>> religiousViolationKeywords = {
     'gelatin', 'gelatine', 'rennet', 'beef extract', 'beef broth',
     'beef stock', 'beef fat', 'tallow',
   ],
+};
+
+// ── Food Quality / Ingredient Preference Filters ─────────────────────────────
+// These flag products that contain undesirable ingredients based on quality
+// concerns (not dietary identity). Shown under "Ingredient Preferences".
+
+const Map<String, List<String>> qualityFilterKeywords = {
+  'sugar-free': [
+    'sugar', 'glucose', 'fructose', 'sucrose', 'dextrose', 'maltose',
+    'lactose', 'corn syrup', 'high fructose corn syrup', 'golden syrup',
+    'maple syrup', 'agave', 'molasses', 'treacle', 'honey', 'invert sugar',
+    'cane sugar', 'beet sugar', 'brown sugar', 'icing sugar', 'powdered sugar',
+    'caster sugar', 'raw sugar', 'coconut sugar', 'date sugar',
+    'e951', 'e952', 'e954', 'e955', 'e960', // artificial sweeteners still count as sugar alternatives — not flagged here
+  ],
+  'no palm oil': [
+    'palm oil', 'palm kernel oil', 'palm fat', 'palm olein',
+    'palm stearin', 'hydrogenated palm', 'fractionated palm',
+    'vegetable fat', // often contains palm — flag for review
+    'vegetable oil', // often palm-based
+  ],
+  'low sodium': [
+    // flag if product explicitly lists high-sodium ingredients
+    'salt', 'sodium chloride', 'sea salt', 'rock salt', 'table salt',
+    'monosodium glutamate', 'msg', 'sodium bicarbonate', 'baking soda',
+    'baking powder', 'sodium nitrate', 'sodium nitrite', 'sodium benzoate',
+    'sodium phosphate', 'disodium', 'trisodium', 'sodium', 'bicarbonate',
+  ],
+  'no artificial additives': [
+    // synthetic colorings
+    'e102', 'e104', 'e110', 'e120', 'e122', 'e123', 'e124', 'e127',
+    'e128', 'e129', 'e131', 'e132', 'e133', 'e142', 'e151', 'e155',
+    'tartrazine', 'sunset yellow', 'carmoisine', 'ponceau', 'brilliant blue',
+    'green s', 'allura red', 'brilliant black',
+    // synthetic preservatives
+    'e210', 'e211', 'e212', 'e213', 'e214', 'e215', 'e216', 'e217',
+    'e218', 'e219', 'e249', 'e250', 'e251', 'e252',
+    'sodium benzoate', 'potassium sorbate', 'sodium nitrite', 'sodium nitrate',
+    'benzoic acid', 'sorbic acid', 'bha', 'bht', 'tbhq',
+    'e320', 'e321', 'e319',
+    // artificial sweeteners
+    'aspartame', 'saccharin', 'sucralose', 'acesulfame', 'neotame',
+    'advantame', 'cyclamate', 'e950', 'e951', 'e952', 'e954', 'e955',
+    // flavor enhancers
+    'monosodium glutamate', 'msg', 'e621', 'e622', 'e623', 'e624', 'e625',
+    // artificial flavors
+    'artificial flavor', 'artificial flavour', 'artificial colour',
+    'artificial color', 'artificial sweetener',
+  ],
+  'no ultra-processed': [
+    // NOVA group 4 markers
+    'hydrolyzed', 'hydrolysed', 'modified starch', 'textured vegetable protein',
+    'tvp', 'protein isolate', 'whey protein isolate', 'soy protein isolate',
+    'interesterified', 'maltodextrin', 'high fructose', 'dextrose',
+    'invert sugar syrup', 'isoglucose', 'glucose-fructose syrup',
+    'polydextrose', 'oligofructose', 'inulin', // in isolation not a concern, but marker
+    'carrageenan', 'xanthan gum', 'guar gum', 'locust bean gum',
+    'emulsifier', 'stabilizer', 'thickener', 'humectant',
+    'anti-caking', 'bleaching agent', 'bulking agent', 'foaming agent',
+    'glazing agent', 'propellant', 'sequestrant', 'flavour enhancer',
+  ],
+  'no trans fat': [
+    'partially hydrogenated', 'hydrogenated vegetable oil',
+    'hydrogenated fat', 'trans fat', 'partially hydrogenated soybean',
+    'partially hydrogenated cottonseed', 'partially hydrogenated canola',
+    'shortening', 'vanaspati',
+  ],
+  'no high fructose corn syrup': [
+    'high fructose corn syrup', 'hfcs', 'isoglucose',
+    'glucose-fructose syrup', 'glucose fructose syrup',
+    'corn syrup', 'corn sweetener',
+  ],
+  'no msg': [
+    'monosodium glutamate', 'msg', 'e621', 'glutamate', 'autolyzed yeast',
+    'hydrolyzed protein', 'yeast extract', 'sodium caseinate',
+    'soy protein extract', 'malt extract', 'malt flavoring',
+  ],
+  'organic only': [
+    // flags absence — hard to detect automatically, so we flag non-organic markers
+    'conventional', 'pesticide', 'herbicide', 'synthetic fertilizer',
+    'gmo', 'genetically modified', 'genetically engineered',
+  ],
+};
+
+// ── Label display config for quality filters ─────────────────────────────────
+
+const Map<String, String> qualityFilterLabels = {
+  'sugar-free':              'No Added Sugar',
+  'no palm oil':             'No Palm Oil',
+  'low sodium':              'Low Sodium',
+  'no artificial additives': 'No Artificial Additives',
+  'no ultra-processed':      'Avoid Ultra-Processed',
+  'no trans fat':            'No Trans Fat',
+  'no high fructose corn syrup': 'No HFCS',
+  'no msg':                  'No MSG',
+  'organic only':            'Organic / Non-GMO',
 };
 
 // All available dietary preference options shown in Settings
@@ -226,4 +320,16 @@ const List<String> allAllergens = [
   'lupin',
   'molluscs',
   'sulphites',
+];
+
+const List<String> allQualityFilters = [
+  'sugar-free',
+  'no palm oil',
+  'low sodium',
+  'no artificial additives',
+  'no ultra-processed',
+  'no trans fat',
+  'no high fructose corn syrup',
+  'no msg',
+  'organic only',
 ];

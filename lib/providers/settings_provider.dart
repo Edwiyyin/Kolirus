@@ -14,12 +14,13 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     'name': 'User',
     'dietary_prefs': <String>[],
     'religious_prefs': <String>[],
+    'quality_filters': <String>[],
     'calorie_goal': 2000.0,
-    'weight_goal': 70.0,
-    'water_goal_ml': 2000.0,
-    'healthy_food_goal': 5.0,
-    'prefer_high_nutriscore': false,
-    'avoid_nova_4': false,
+    'protein_goal': 150.0,
+    'carbs_goal': 250.0,
+    'fat_goal': 70.0,
+    'fiber_goal': 30.0,
+    'water_goal': 2000.0,
     'profile_pic': null,
   }) {
     _loadSettings();
@@ -28,47 +29,41 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
   final _db = DatabaseService.instance;
 
   Future<void> _loadSettings() async {
-    final allergiesStr = await _db.getSetting('allergies');
-    final name = await _db.getSetting('name');
-    final dietaryStr = await _db.getSetting('dietary_prefs');
-    final religiousStr = await _db.getSetting('religious_prefs');
-    final goalStr = await _db.getSetting('calorie_goal');
-    final weightGoalStr = await _db.getSetting('weight_goal');
-    final waterGoalStr = await _db.getSetting('water_goal_ml');
-    final healthyGoalStr = await _db.getSetting('healthy_food_goal');
-    final highNutriStr = await _db.getSetting('prefer_high_nutriscore');
-    final avoidNovaStr = await _db.getSetting('avoid_nova_4');
-    final profilePic = await _db.getSetting('profile_pic');
+    final allergiesStr    = await _db.getSetting('allergies');
+    final name            = await _db.getSetting('name');
+    final dietaryStr      = await _db.getSetting('dietary_prefs');
+    final religiousStr    = await _db.getSetting('religious_prefs');
+    final qualityStr      = await _db.getSetting('quality_filters');
+    final goalStr         = await _db.getSetting('calorie_goal');
+    final proteinGoalStr  = await _db.getSetting('protein_goal');
+    final carbsGoalStr    = await _db.getSetting('carbs_goal');
+    final fatGoalStr      = await _db.getSetting('fat_goal');
+    final fiberGoalStr    = await _db.getSetting('fiber_goal');
+    final waterGoalStr    = await _db.getSetting('water_goal');
+    final profilePic      = await _db.getSetting('profile_pic');
 
     Map<String, dynamic> newState = {...state};
-    if (allergiesStr != null) {
+    if (allergiesStr != null)
       newState['allergies'] = List<String>.from(jsonDecode(allergiesStr));
-    }
     if (name != null) newState['name'] = name;
-    if (dietaryStr != null) {
+    if (dietaryStr != null)
       newState['dietary_prefs'] = List<String>.from(jsonDecode(dietaryStr));
-    }
-    if (religiousStr != null) {
+    if (religiousStr != null)
       newState['religious_prefs'] = List<String>.from(jsonDecode(religiousStr));
-    }
-    if (goalStr != null) {
+    if (qualityStr != null)
+      newState['quality_filters'] = List<String>.from(jsonDecode(qualityStr));
+    if (goalStr != null)
       newState['calorie_goal'] = double.tryParse(goalStr) ?? 2000.0;
-    }
-    if (weightGoalStr != null) {
-      newState['weight_goal'] = double.tryParse(weightGoalStr) ?? 70.0;
-    }
-    if (waterGoalStr != null) {
-      newState['water_goal_ml'] = double.tryParse(waterGoalStr) ?? 2000.0;
-    }
-    if (healthyGoalStr != null) {
-      newState['healthy_food_goal'] = double.tryParse(healthyGoalStr) ?? 5.0;
-    }
-    if (highNutriStr != null) {
-      newState['prefer_high_nutriscore'] = highNutriStr == 'true';
-    }
-    if (avoidNovaStr != null) {
-      newState['avoid_nova_4'] = avoidNovaStr == 'true';
-    }
+    if (proteinGoalStr != null)
+      newState['protein_goal'] = double.tryParse(proteinGoalStr) ?? 150.0;
+    if (carbsGoalStr != null)
+      newState['carbs_goal'] = double.tryParse(carbsGoalStr) ?? 250.0;
+    if (fatGoalStr != null)
+      newState['fat_goal'] = double.tryParse(fatGoalStr) ?? 70.0;
+    if (fiberGoalStr != null)
+      newState['fiber_goal'] = double.tryParse(fiberGoalStr) ?? 30.0;
+    if (waterGoalStr != null)
+      newState['water_goal'] = double.tryParse(waterGoalStr) ?? 2000.0;
     if (profilePic != null) newState['profile_pic'] = profilePic;
 
     state = newState;
@@ -94,24 +89,23 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     await _db.saveSetting('religious_prefs', jsonEncode(prefs));
   }
 
+  Future<void> updateQualityFilters(List<String> filters) async {
+    state = {...state, 'quality_filters': filters};
+    await _db.saveSetting('quality_filters', jsonEncode(filters));
+  }
+
   Future<void> updateCalorieGoal(double goal) async {
     state = {...state, 'calorie_goal': goal};
     await _db.saveSetting('calorie_goal', goal.toString());
   }
 
+  Future<void> updateNutrientGoal(String key, double goal) async {
+    state = {...state, key: goal};
+    await _db.saveSetting(key, goal.toString());
+  }
+
   Future<void> updateProfilePic(String path) async {
     state = {...state, 'profile_pic': path};
     await _db.saveSetting('profile_pic', path);
-  }
-
-  Future<void> updateSettings(Map<String, dynamic> newSettings) async {
-    state = newSettings;
-    for (var entry in newSettings.entries) {
-      if (entry.value is List) {
-        await _db.saveSetting(entry.key, jsonEncode(entry.value));
-      } else if (entry.value != null) {
-        await _db.saveSetting(entry.key, entry.value.toString());
-      }
-    }
   }
 }
