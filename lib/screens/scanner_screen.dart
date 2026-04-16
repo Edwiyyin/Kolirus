@@ -14,39 +14,7 @@ import 'dart:convert';
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
 
-  @override
-  ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
-}
-
-class _ScannerScreenState extends ConsumerState<ScannerScreen> {
-  final FoodApiService _apiService = FoodApiService();
-  bool _isProcessing = false;
-  bool _showHistory = false;
-
-  void _onDetect(BarcodeCapture capture) async {
-    if (_isProcessing || _showHistory) return;
-    final barcodes = capture.barcodes;
-    if (barcodes.isNotEmpty) {
-      final code = barcodes.first.rawValue;
-      if (code != null) {
-        setState(() => _isProcessing = true);
-        final product = await _apiService.fetchProduct(code);
-        if (mounted) {
-          if (product != null) {
-            ref.read(scanHistoryProvider.notifier).addToHistory(product);
-            _showProductDialog(product);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Product not found')),
-            );
-            setState(() => _isProcessing = false);
-          }
-        }
-      }
-    }
-  }
-
-  // ── Detection helpers ──────────────────────────────────────────────────────
+  // ── Public Detection helpers ──────────────────────────────────────────────
 
   static List<String> detectAllergens(
       FoodItem product, List<String> userAllergies) {
@@ -117,6 +85,38 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       product.ingredientsText ?? '',
       ...product.allergens,
     ].join(' ').toLowerCase();
+  }
+
+  @override
+  ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
+}
+
+class _ScannerScreenState extends ConsumerState<ScannerScreen> {
+  final FoodApiService _apiService = FoodApiService();
+  bool _isProcessing = false;
+  bool _showHistory = false;
+
+  void _onDetect(BarcodeCapture capture) async {
+    if (_isProcessing || _showHistory) return;
+    final barcodes = capture.barcodes;
+    if (barcodes.isNotEmpty) {
+      final code = barcodes.first.rawValue;
+      if (code != null) {
+        setState(() => _isProcessing = true);
+        final product = await _apiService.fetchProduct(code);
+        if (mounted) {
+          if (product != null) {
+            ref.read(scanHistoryProvider.notifier).addToHistory(product);
+            _showProductDialog(product);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Product not found')),
+            );
+            setState(() => _isProcessing = false);
+          }
+        }
+      }
+    }
   }
 
   void _showProductDialog(FoodItem product) {
@@ -333,14 +333,14 @@ class _ProductDialogState extends ConsumerState<_ProductDialog> {
     final userQuality =
     List<String>.from(userSettings['quality_filters'] ?? []);
 
-    final allergyWarnings = _ScannerScreenState.detectAllergens(
+    final allergyWarnings = ScannerScreen.detectAllergens(
         widget.product, userAllergies);
-    final dietaryViolations = _ScannerScreenState.detectDietaryViolations(
+    final dietaryViolations = ScannerScreen.detectDietaryViolations(
         widget.product, userDietary, userReligious);
-    final qualityViolations = _ScannerScreenState.detectQualityViolations(
+    final qualityViolations = ScannerScreen.detectQualityViolations(
         widget.product, userQuality);
     final customViolations = _customDietsLoaded
-        ? _ScannerScreenState.detectCustomDietViolations(
+        ? ScannerScreen.detectCustomDietViolations(
         widget.product, _customDiets)
         : <String>[];
 

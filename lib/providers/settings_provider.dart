@@ -22,6 +22,10 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     'fiber_goal': 30.0,
     'water_goal': 2000.0,
     'profile_pic': null,
+    'palm_oil_free': false,
+    'sugar_free': false,
+    'avoid_highly_processed': false,
+    'low_salt': false,
   }) {
     _loadSettings();
   }
@@ -41,6 +45,11 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     final fiberGoalStr    = await _db.getSetting('fiber_goal');
     final waterGoalStr    = await _db.getSetting('water_goal');
     final profilePic      = await _db.getSetting('profile_pic');
+    
+    final palmOilFree     = await _db.getSetting('palm_oil_free');
+    final sugarFree       = await _db.getSetting('sugar_free');
+    final avoidProcessed  = await _db.getSetting('avoid_highly_processed');
+    final lowSalt         = await _db.getSetting('low_salt');
 
     Map<String, dynamic> newState = {...state};
     if (allergiesStr != null)
@@ -65,8 +74,24 @@ class SettingsNotifier extends StateNotifier<Map<String, dynamic>> {
     if (waterGoalStr != null)
       newState['water_goal'] = double.tryParse(waterGoalStr) ?? 2000.0;
     if (profilePic != null) newState['profile_pic'] = profilePic;
+    
+    if (palmOilFree != null) newState['palm_oil_free'] = palmOilFree == 'true';
+    if (sugarFree != null) newState['sugar_free'] = sugarFree == 'true';
+    if (avoidProcessed != null) newState['avoid_highly_processed'] = avoidProcessed == 'true';
+    if (lowSalt != null) newState['low_salt'] = lowSalt == 'true';
 
     state = newState;
+  }
+
+  Future<void> updateSettings(Map<String, dynamic> newSettings) async {
+    state = newSettings;
+    for (var entry in newSettings.entries) {
+      if (entry.value is List || entry.value is Map) {
+        await _db.saveSetting(entry.key, jsonEncode(entry.value));
+      } else {
+        await _db.saveSetting(entry.key, entry.value.toString());
+      }
+    }
   }
 
   Future<void> updateAllergies(List<String> allergies) async {
